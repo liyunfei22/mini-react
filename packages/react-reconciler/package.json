@@ -1,0 +1,22 @@
+{
+  "name": "@mini-react/react-reconciler",
+  "version": "0.0.1",
+  "private": true,
+  "sideEffects": false,
+  "description": "与 host 无关的 reconciler（Fiber/workLoop/commit/hooks/lane）—— 对应官方 packages/react-reconciler，被 react-dom 内联",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "default": {
+        "import": "./src/index.ts",
+        "require": "./src/index.ts"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/types/index.d.ts",
+  "dependencies": {
+    "@mini-react/scheduler": "workspace:*",
+    "@mini-react/shared": "workspace:*"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "playground",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "mini-react 的演示台：开发态 alias 直连包源码（零构建），build 态消费 dist 作为 exports 冒烟测试",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@mini-react/react": "workspace:*",
+    "@mini-react/react-dom": "workspace:*",
+    "@mini-react/react-reconciler": "workspace:*",
+    "@mini-react/scheduler": "workspace:*",
+    "@mini-react/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "^8.3.0"
+  }
+}

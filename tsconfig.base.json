@@ -1,0 +1,47 @@
+{
+  // 所有包（packages/*、apps/*）共享的编译配置。
+  // 每个包只负责 typecheck 与产出 .d.ts（JS 产物全部由 scripts/ 的 rollup 矩阵产出）。
+  // 关闭 exactOptionalPropertyTypes / noUncheckedIndexedAccess 是为了与官方 React 源码写法对齐
+  //（源码大量显式 undefined、数组索引下标访问），注释供学习者对照，不要轻易开启。
+  "compilerOptions": {
+    "target": "ES2019",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+
+    // 以下 paths 把 @mini-react/* 直接指到源码，让类型检查落在最新源码上；
+    // 运行时（Vite/Vitest）用各自配置里的 alias 做同样的事 —— 见 vitest.config.ts 与 apps/playground/vite.config.ts。
+    "baseUrl": ".",
+    "paths": {
+      "@mini-react/shared": ["packages/shared/src/index.ts"],
+      "@mini-react/scheduler": ["packages/scheduler/src/index.ts"],
+      "@mini-react/react": ["packages/react/src/index.ts"],
+      "@mini-react/react/*": ["packages/react/src/*"],
+      "@mini-react/react-reconciler": ["packages/react-reconciler/src/index.ts"],
+      "@mini-react/react-dom": ["packages/react-dom/src/index.ts"],
+      "@mini-react/react-dom/*": ["packages/react-dom/src/*"],
+      "@mini-react/react-test-renderer": ["packages/react-test-renderer/src/index.ts"]
+    },
+
+    "strict": true,
+    "exactOptionalPropertyTypes": false,
+    "noUncheckedIndexedAccess": false,
+    "useUnknownInCatchVariables": true,
+    "noImplicitOverride": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+
+    // JSX：packages 源码刻意不用 JSX 语法（教学 → 手写 createElement，与官方源码同构便于 diff）。
+    // playground 单独把 jsx 打成 "react-jsx"（见 apps/playground/tsconfig.json）。
+    "jsx": "react",
+
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "composite": true,
+    "emitDeclarationOnly": true
+  }
+}

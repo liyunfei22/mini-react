@@ -1,0 +1,22 @@
+{
+  "name": "@mini-react/react-test-renderer",
+  "version": "0.0.1",
+  "private": true,
+  "sideEffects": false,
+  "description": "reconciler 的内存 Host 测试渲染器 —— 对应官方 react-test-renderer，第 4 章起所有 reconciler 单测跑它",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "default": {
+        "import": "./src/index.ts",
+        "require": "./src/index.ts"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/types/index.d.ts",
+  "dependencies": {
+    "@mini-react/react-reconciler": "workspace:*",
+    "@mini-react/shared": "workspace:*"
+  }
+}

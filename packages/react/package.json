@@ -1,0 +1,45 @@
+{
+  "name": "@mini-react/react",
+  "version": "0.0.1",
+  "private": true,
+  "sideEffects": false,
+  "description": "用户侧 React API：createElement / JSX 运行时 / hooks 入口 —— 对应官方 packages/react",
+  "main": "./dist/cjs/react.production.min.js",
+  "module": "./dist/esm/react.development.mjs",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "development": {
+        "import": "./dist/esm/react.development.mjs",
+        "require": "./dist/cjs/react.development.js"
+      },
+      "default": {
+        "import": "./dist/esm/react.production.min.mjs",
+        "require": "./dist/cjs/react.production.min.js"
+      }
+    },
+    "./jsx-runtime": {
+      "types": "./dist/types/jsx-runtime.d.ts",
+      "development": {
+        "import": "./dist/esm/react-jsx-runtime.development.mjs",
+        "require": "./dist/cjs/react-jsx-runtime.development.js"
+      },
+      "default": {
+        "import": "./dist/esm/react-jsx-runtime.production.min.mjs",
+        "require": "./dist/cjs/react-jsx-runtime.production.min.js"
+      }
+    },
+    "./jsx-dev-runtime": {
+      "types": "./dist/types/jsx-dev-runtime.d.ts"
+    },
+    "./umd": {
+      "development": "./dist/umd/react.development.js",
+      "default": "./dist/umd/react.production.min.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@mini-react/shared": "workspace:*"
+  }
+}

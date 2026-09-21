@@ -1,0 +1,18 @@
+{
+  "name": "@mini-react/scheduler",
+  "version": "0.0.1",
+  "private": true,
+  "sideEffects": false,
+  "description": "合作式任务调度器（MessageChannel 时间切片/最小堆/优先级）—— 对应官方 packages/scheduler，第 14 章填充真身",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "default": {
+        "import": "./src/index.ts",
+        "require": "./src/index.ts"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/types/index.d.ts"
+}

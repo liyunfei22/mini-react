@@ -1,0 +1,47 @@
+{
+  "name": "mini-react",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "从零手写 React 18（含并发）：源码原理学习仓库 + 掘金技术专栏 + scripts/rollup 式打包脚手架",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "node scripts/build.js",
+    "build:react-dom": "node scripts/build.js react-dom",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "check": "pnpm typecheck && pnpm test && pnpm build && pnpm --filter playground build",
+    "playground:dev": "pnpm --filter playground dev",
+    "playground:build": "pnpm --filter playground build",
+    "playground:preview": "pnpm --filter playground preview",
+    "article:new": "node tools/new-article.mjs",
+    "article:juejin": "node tools/to-juejin.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@rollup/plugin-replace": "^6.0.3",
+    "@rollup/plugin-terser": "^1.0.0",
+    "@types/node": "^26.6.2",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-import-x": "^4.17.1",
+    "prettier": "^3.9.8",
+    "rollup": "^4.63.4",
+    "rollup-plugin-esbuild": "^6.2.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.70.0",
+    "vitest": "^5.0.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "unrs-resolver"
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  // 解决方案文件：单条 `tsc -b` 驱动全仓的类型检查与声明产出。
+  // 依赖顺序由 references 声明保证，个人项目按此顺序构建。
+  "files": [],
+  "references": [
+    { "path": "./packages/shared" },
+    { "path": "./packages/scheduler" },
+    { "path": "./packages/react-reconciler" },
+    { "path": "./packages/react" },
+    { "path": "./packages/react-dom" },
+    { "path": "./packages/react-test-renderer" },
+    { "path": "./apps/playground" }
+  ]
+}

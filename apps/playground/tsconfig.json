@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist-types",
+    "rootDir": ".",
+    // 只有 playground 使用 JSX 自动运行时；packages 的源码刻意不用 JSX（见 README 术语约定）
+    "jsx": "react-jsx",
+    "jsxImportSource": "@mini-react/react",
+    "types": ["node", "vite/client"]
+  },
+  "include": ["src", "vite.config.ts"],
+  "files": ["../../types/global.d.ts"],
+  "references": [
+    { "path": "../../packages/react" },
+    { "path": "../../packages/react-dom" },
+    { "path": "../../packages/react-reconciler" },
+    { "path": "../../packages/scheduler" },
+    { "path": "../../packages/shared" }
+  ]
+}

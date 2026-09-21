@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist/types",
+    "rootDir": "src"
+  },
+  "include": ["src"],
+  "files": ["../../types/global.d.ts"],
+  "references": [
+    { "path": "../react" },
+    { "path": "../react-reconciler" },
+    { "path": "../scheduler" },
+    { "path": "../shared" }
+  ]
+}

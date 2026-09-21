@@ -1,0 +1,45 @@
+{
+  "name": "@mini-react/react-dom",
+  "version": "0.0.1",
+  "private": true,
+  "sideEffects": false,
+  "description": "DOM 渲染器 —— 对应官方 packages/react-dom（含 client 入口）。第 4 章起填充 createRoot/事件系统",
+  "main": "./dist/cjs/react-dom.production.min.js",
+  "module": "./dist/esm/react-dom.development.mjs",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "development": {
+        "import": "./dist/esm/react-dom.development.mjs",
+        "require": "./dist/cjs/react-dom.development.js"
+      },
+      "default": {
+        "import": "./dist/esm/react-dom.production.min.mjs",
+        "require": "./dist/cjs/react-dom.production.min.js"
+      }
+    },
+    "./client": {
+      "types": "./dist/types/client.d.ts",
+      "development": {
+        "import": "./dist/esm/react-dom.development.mjs",
+        "require": "./dist/cjs/react-dom.development.js"
+      },
+      "default": {
+        "import": "./dist/esm/react-dom.production.min.mjs",
+        "require": "./dist/cjs/react-dom.production.min.js"
+      }
+    },
+    "./umd": {
+      "development": "./dist/umd/react-dom.development.js",
+      "default": "./dist/umd/react-dom.production.min.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@mini-react/react": "workspace:*",
+    "@mini-react/react-reconciler": "workspace:*",
+    "@mini-react/scheduler": "workspace:*",
+    "@mini-react/shared": "workspace:*"
+  }
+}

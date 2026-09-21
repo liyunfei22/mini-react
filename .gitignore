@@ -1,0 +1,15 @@
+# 依赖与构建产物
+node_modules/
+dist/
+coverage/
+
+# TypeScript 增量构建信息
+*.tsbuildinfo
+
+# 工具
+.turbo/
+.vite/
+*.log
+.DS_Store
+.idea/
+.vscode/
