@@ -5,7 +5,7 @@ export { initializeHostConfig, hostConfig } from './HostConfig';
 export type { HostConfig, Props } from './HostConfig';
 
 /** 创建 FiberRoot（官方 ReactFiberRoot.createContainer 的返回值）—— 第 4 章实现 */
-export function createContainer(containerInfo: unknown): never {
+export function createContainer(_containerInfo: unknown): never {
   throw new Error(
     '[react-reconciler] createContainer 尚未实现 —— 第 4 章开始填充 Fiber 首屏挂载。',
   );
@@ -13,7 +13,5 @@ export function createContainer(containerInfo: unknown): never {
 
 /** 把 element 放进 root 并调度一次渲染 —— 第 4 章实现 */
 export function updateContainer(_element: unknown, _container: unknown): never {
-  throw new Error(
-    '[react-reconciler] updateContainer 尚未实现 —— 第 4 章开始填充。',
-  );
+  throw new Error('[react-reconciler] updateContainer 尚未实现 —— 第 4 章开始填充。');
 }

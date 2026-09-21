@@ -13,10 +13,7 @@ const repoRoot = process.cwd();
 /** 读取包的版本号用于 license banner */
 function readPackageVersion(packageName) {
   try {
-    const raw = readFileSync(
-      resolve(repoRoot, 'packages', packageName, 'package.json'),
-      'utf8',
-    );
+    const raw = readFileSync(resolve(repoRoot, 'packages', packageName, 'package.json'), 'utf8');
     return JSON.parse(raw).version ?? '0.0.1';
   } catch {
     return '0.0.1';

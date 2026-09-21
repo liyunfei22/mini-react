@@ -41,11 +41,7 @@ export interface ReactContext<T> {
  */
 export interface Dispatcher {
   useState<S>(initialState: S | (() => S)): [S, Dispatch<SetStateAction<S>>];
-  useReducer<S, A>(
-    reducer: Reducer<S, A>,
-    initialArg: S,
-    init?: (arg: S) => S,
-  ): [S, Dispatch<A>];
+  useReducer<S, A>(reducer: Reducer<S, A>, initialArg: S, init?: (arg: S) => S): [S, Dispatch<A>];
   useEffect(create: EffectCallback, deps?: DependencyList | null): void;
   useLayoutEffect(create: EffectCallback, deps?: DependencyList | null): void;
   useRef<T>(initialValue: T): { current: T };

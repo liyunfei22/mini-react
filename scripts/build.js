@@ -7,7 +7,7 @@
 //   node scripts/build.js react-dom  # 只打 id 包含 react-dom 的 bundle（调试）
 // ============================================================================
 import { statSync } from 'node:fs';
-import { relative, resolve } from 'node:path';
+import { relative } from 'node:path';
 import { rollup } from 'rollup';
 import { bundles } from './config.js';
 import { createRollupOptions } from './utils/forked-rollup.js';

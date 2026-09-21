@@ -64,7 +64,8 @@ export const hostConfig: HostConfig = {
   appendInitialChild: (parentInstance, child) => host().appendInitialChild(parentInstance, child),
   appendChild: (parentInstance, child) => host().appendChild(parentInstance, child),
   appendChildToContainer: (container, child) => host().appendChildToContainer(container, child),
-  insertBefore: (parentInstance, child, before) => host().insertBefore(parentInstance, child, before),
+  insertBefore: (parentInstance, child, before) =>
+    host().insertBefore(parentInstance, child, before),
   removeChild: (parentInstance, child) => host().removeChild(parentInstance, child),
   removeChildFromContainer: (container, child) => host().removeChildFromContainer(container, child),
   commitUpdate: (instance, oldProps, newProps, type) =>

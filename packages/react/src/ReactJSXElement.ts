@@ -6,10 +6,7 @@
 // - 不再接受 config 里的 __self / __source（那是 DEV 工具渲染路径）。
 import { hasOwn } from '@mini-react/shared';
 import { ReactCurrentOwner } from './ReactCurrentOwner';
-import {
-  ReactElement as elementFactory,
-  validateElementType,
-} from './ReactElement';
+import { ReactElement as elementFactory, validateElementType } from './ReactElement';
 import type { ElementConfig, ReactElement, ReactKey } from './ReactElement';
 
 const RESERVED_PROPS: Record<string, boolean> = {
@@ -21,10 +18,7 @@ function hasValidRef(config: ElementConfig): boolean {
   return config.ref !== undefined;
 }
 
-function defaultPropsFill(
-  props: Record<string, unknown>,
-  type: unknown,
-): Record<string, unknown> {
+function defaultPropsFill(props: Record<string, unknown>, type: unknown): Record<string, unknown> {
   if (type !== null && (type as { defaultProps?: unknown }).defaultProps !== undefined) {
     const defaultProps = (type as { defaultProps: Record<string, unknown> }).defaultProps;
     for (const propName in defaultProps) {
@@ -57,7 +51,7 @@ function jsxCommon<Type = unknown>(
       ref = config.ref;
     }
     for (propName in config) {
-      if (hasOwn(config, propName) && !RESERVED_PROPS.hasOwnProperty(propName)) {
+      if (hasOwn(config, propName) && !hasOwn(RESERVED_PROPS, propName)) {
         props[propName] = config[propName];
       }
     }

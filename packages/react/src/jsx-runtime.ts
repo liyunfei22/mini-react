@@ -10,7 +10,9 @@ export type { ReactElement } from './ReactElement';
 /**
  * 供 TS 校验 JSX 的命名空间（automatic 运行时从 jsx-runtime 模块解析 JSX.*）。
  * 学习阶段不追求精确的属性类型：允许任意字符串标签，props 宽松接收。
+ * 官方 React 类型里同样用 namespace JSX 组织这些类型，故按官方口径保留。
  */
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace JSX {
   /** 一切 JSX 表达式最终产出一个 ReactElement */
   export type Element = import('./ReactElement').ReactElement;

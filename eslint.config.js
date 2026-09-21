@@ -1,5 +1,6 @@
 // ESLint flat config（ESLint 10）
 import js from '@eslint/js';
+import globals from 'globals';
 import tseslint from 'typescript-eslint';
 import importX from 'eslint-plugin-import-x';
 import prettier from 'eslint-config-prettier';
@@ -7,14 +8,27 @@ import prettier from 'eslint-config-prettier';
 export default tseslint.config(
   {
     // 构建产物与生成物不 lint
-    ignores: ['**/dist/**', '**/dist-types/**', '**/node_modules/**', '**/coverage/**', '**/*.tsbuildinfo'],
+    ignores: [
+      '**/dist/**',
+      '**/dist-types/**',
+      '**/node_modules/**',
+      '**/coverage/**',
+      '**/*.tsbuildinfo',
+    ],
   },
 
   js.configs.recommended,
   ...tseslint.configs.recommended,
 
+  // scripts/ 与 tools/ 是 Node 脚本：提供 console / process 等全局
   {
-    plugins: { import: importX },
+    files: ['scripts/**/*.js', 'tools/**/*.mjs'],
+    languageOptions: { globals: globals.node },
+  },
+
+  {
+    // 插件名与规则前缀必须一致：eslint-plugin-import-x 的 flat config 里规则形如 'import-x/no-cycle'
+    plugins: { 'import-x': importX },
     settings: {
       'import-x/resolver': { typescript: true },
     },

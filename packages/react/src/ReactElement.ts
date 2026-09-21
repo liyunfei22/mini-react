@@ -14,14 +14,7 @@ export const REACT_FRAGMENT_TYPE: symbol = Symbol.for('react.fragment');
 // ---- 公开类型 ----
 export type ReactKey = string | null;
 
-export type ReactNode =
-  | ReactElement
-  | String
-  | number
-  | boolean
-  | null
-  | undefined
-  | ReactNode[];
+export type ReactNode = ReactElement | string | number | boolean | null | undefined | ReactNode[];
 
 /** props 的默认形状：允许任意属性名 + 保留 children 位 */
 export type ElementProps = {
@@ -69,7 +62,7 @@ function hasValidRef(config: ElementConfig): boolean {
 }
 
 /** dev 下校验 type：只允许内置标签(string)/函数/符号(如 Fragment) */
-export function validateElementType(type: unknown, source: string | null): void {
+export function validateElementType(type: unknown, _source: string | null): void {
   if (typeof type === 'function' || typeof type === 'string' || typeof type === 'symbol') {
     return;
   }
@@ -152,7 +145,7 @@ export function createElement<Type>(
       key = '' + (config.key as ReactKey);
     }
     for (propName in config) {
-      if (hasOwn(config, propName) && !RESERVED_PROPS.hasOwnProperty(propName)) {
+      if (hasOwn(config, propName) && !hasOwn(RESERVED_PROPS, propName)) {
         props[propName] = config[propName];
       }
     }

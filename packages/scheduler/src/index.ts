@@ -25,7 +25,9 @@ interface Task {
 }
 
 function notImplemented(name: string): never {
-  throw new Error(`[@mini-react/scheduler] ${name} 尚未实现 —— 第 14 章填充（时间切片 / 任务队列）。`);
+  throw new Error(
+    `[@mini-react/scheduler] ${name} 尚未实现 —— 第 14 章填充（时间切片 / 任务队列）。`,
+  );
 }
 
 /** 注册一个延迟/立即任务，返回 Task（后续可 cancelCallback） */

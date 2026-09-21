@@ -18,6 +18,9 @@ export function createRoot(container: Element | DocumentFragment): unknown {
 }
 
 /** hydrateRoot —— 服务端渲染水合（本系列不实现 SSR，先占位） */
-export function hydrateRoot(_container: Element | DocumentFragment, _initialChildren: unknown): unknown {
+export function hydrateRoot(
+  _container: Element | DocumentFragment,
+  _initialChildren: unknown,
+): unknown {
   return notImplemented('hydrateRoot');
 }

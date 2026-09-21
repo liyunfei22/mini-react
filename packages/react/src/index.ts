@@ -8,7 +8,13 @@ export {
   REACT_FRAGMENT_TYPE,
 } from './ReactElement';
 
-export type { ElementConfig, ElementProps, ReactElement, ReactKey, ReactNode } from './ReactElement';
+export type {
+  ElementConfig,
+  ElementProps,
+  ReactElement,
+  ReactKey,
+  ReactNode,
+} from './ReactElement';
 
 export { ReactCurrentOwner } from './ReactCurrentOwner';
 

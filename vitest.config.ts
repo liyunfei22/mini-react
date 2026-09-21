@@ -13,7 +13,10 @@ const alias: Alias[] = [
   { find: /^@mini-react\/scheduler$/, replacement: source('scheduler/src/index.ts') },
   { find: /^@mini-react\/react$/, replacement: source('react/src/index.ts') },
   { find: /^@mini-react\/react\/jsx-runtime$/, replacement: source('react/src/jsx-runtime.ts') },
-  { find: /^@mini-react\/react\/jsx-dev-runtime$/, replacement: source('react/src/jsx-dev-runtime.ts') },
+  {
+    find: /^@mini-react\/react\/jsx-dev-runtime$/,
+    replacement: source('react/src/jsx-dev-runtime.ts'),
+  },
   { find: /^@mini-react\/react-reconciler$/, replacement: source('react-reconciler/src/index.ts') },
   { find: /^@mini-react\/react-dom$/, replacement: source('react-dom/src/index.ts') },
   { find: /^@mini-react\/react-dom\/client$/, replacement: source('react-dom/src/client.ts') },

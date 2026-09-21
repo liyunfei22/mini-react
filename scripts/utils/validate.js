@@ -36,7 +36,7 @@ export function validateConfig(bundles) {
 /** 校验产物：文件存在且非空；UMD 不含 process、不含残留 __DEV__ */
 export function validateArtifacts(artifacts) {
   const errors = [];
-  for (const { bundle, env, format, outputRel } of artifacts) {
+  for (const { bundle, format, outputRel } of artifacts) {
     const file = resolve(repoRoot, 'packages', bundle.packageName, outputRel);
     if (!existsSync(file)) {
       errors.push(`[artifact] 产物缺失：${outputRel}`);

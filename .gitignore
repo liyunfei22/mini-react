@@ -10,6 +10,9 @@ coverage/
 packages/*/src/*.d.ts
 packages/*/src/*.d.ts.map
 
+# tools/to-juejin.mjs 生成的"纯正文"派生文件（粘贴到掘金用）
+**/.juejin-body.md
+
 # TypeScript 增量构建信息
 *.tsbuildinfo
 

@@ -1,15 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import {
-  createElement,
-  Fragment,
-  isValidElement,
-  REACT_ELEMENT_TYPE,
-} from '../index';
+import { createElement, Fragment, isValidElement, REACT_ELEMENT_TYPE } from '../index';
 
-function withDefaultProps(
-  comp: () => unknown,
-  defaults: Record<string, unknown>,
-): () => unknown {
+function withDefaultProps(comp: () => unknown, defaults: Record<string, unknown>): () => unknown {
   (comp as unknown as { defaultProps?: Record<string, unknown> }).defaultProps = defaults;
   return comp;
 }
@@ -48,10 +40,7 @@ describe('createElement —— ReactElement 的形状与稳定契约', () => {
   });
 
   it('defaultProps 兜底：只在 props 对应值为 undefined 时生效', () => {
-    const Comp = withDefaultProps(
-      () => createElement('div', null),
-      { x: 'X', y: 'Y' },
-    );
+    const Comp = withDefaultProps(() => createElement('div', null), { x: 'X', y: 'Y' });
     const withY = createElement(Comp, { y: 'overridden' });
     expect(withY.props).toEqual({ x: 'X', y: 'overridden' });
   });

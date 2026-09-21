@@ -16,7 +16,7 @@ export const ReactDOMHostConfig: HostConfig = {
     const children = props.children;
     return typeof children === 'string' || typeof children === 'number';
   },
-  createInstance: (type, props) => notImplemented(`createInstance('${type}')`),
+  createInstance: (type, _props) => notImplemented(`createInstance('${type}')`),
   createTextInstance: () => notImplemented('createTextInstance'),
   appendInitialChild: () => notImplemented('appendInitialChild'),
   appendChild: () => notImplemented('appendChild'),
