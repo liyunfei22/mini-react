@@ -3,6 +3,13 @@ node_modules/
 dist/
 coverage/
 
+# playground 的类型产物（与 vite 的 dist/ 区分）
+**/dist-types/
+
+# tsc 就地发射的残留声明（早期 tsgo 版本的坑；5.9 已正确输出到 dist/types）
+packages/*/src/*.d.ts
+packages/*/src/*.d.ts.map
+
 # TypeScript 增量构建信息
 *.tsbuildinfo
 
