@@ -3,6 +3,7 @@
 // workLoop 就靠"返回 child / 进 complete"来决定游标去向。
 import { mountChildFibers, reconcileChildFibers } from './ReactChildFiber';
 import type { FiberNode } from './ReactFiber';
+import { renderWithHooks } from './ReactFiberHooks';
 import type { Lanes } from './ReactFiberLane';
 import {
   FunctionComponent,
@@ -57,8 +58,8 @@ function updateHostRoot(
 }
 
 /**
- * 函数组件：直接调用组件函数拿到它返回的 element。
- * 注意：这是"无 hooks"的极简版——还没有 ReactCurrentDispatcher 那一套（第 6 章）。
+ * 函数组件：经 renderWithHooks 调用 Component——它会先按"挂载/更新"选好 dispatcher，
+ * 这样组件里的 useState 才会命中正确的 hook 实现（第 6 章）。
  */
 function updateFunctionComponent(
   current: FiberNode | null,
@@ -67,7 +68,9 @@ function updateFunctionComponent(
 ): FiberNode | null {
   const Component = workInProgress.type as (props: unknown) => unknown;
   const props = workInProgress.pendingProps ?? {};
-  const nextChildren = Component(props);
+  const nextChildren = renderWithHooks(current, workInProgress, Component, props);
+  // 官方：首次渲染时 tag 是 IndeterminateComponent，确认是函数组件后升级为 FunctionComponent
+  workInProgress.tag = FunctionComponent;
   reconcileChildren(current, workInProgress, nextChildren, renderLanes);
   return workInProgress.child;
 }

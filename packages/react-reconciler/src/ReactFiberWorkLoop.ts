@@ -7,7 +7,7 @@ import { beginWork } from './ReactFiberBeginWork';
 import { commitRoot } from './ReactFiberCommitWork';
 import { createWorkInProgress } from './ReactFiber';
 import type { FiberNode } from './ReactFiber';
-import { SyncLane } from './ReactFiberLane';
+import { NoLanes, SyncLane } from './ReactFiberLane';
 import type { Lane } from './ReactFiberLane';
 import type { FiberRootNode } from './ReactFiberRoot';
 import {
@@ -89,9 +89,18 @@ function renderRootSync(root: FiberRootNode): void {
 
 /** 同步渲染 + commit（官方 performSyncWorkOnRoot 的精简） */
 function performSyncWorkOnRoot(root: FiberRootNode): void {
-  renderRootSync(root);
-  if (root.finishedWork !== null) {
-    commitRoot(root);
+  try {
+    renderRootSync(root);
+    if (root.finishedWork !== null) {
+      commitRoot(root);
+    }
+  } finally {
+    // 渲染/提交抛错也必须复位，否则 pendingLanes 卡住 → scheduleUpdateOnFiber 的
+    // 早退守卫恒真，后续所有更新被静默吞掉（第 6 章 'Rendered more hooks' 就是这条路径）。
+    if (root.finishedWork !== null) {
+      root.finishedWork = null;
+    }
+    root.pendingLanes = NoLanes;
   }
 }
 
