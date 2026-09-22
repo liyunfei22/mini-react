@@ -56,17 +56,12 @@ export { formatFiberTree } from './DebugFiber';
 // ---- 公共 API（第 4 章起逐章补全）----
 import { ConcurrentRoot, createFiberRoot } from './ReactFiberRoot';
 import type { FiberRootNode } from './ReactFiberRoot';
+import { flushSyncCallbacks, scheduleUpdateOnFiber, updateContainer } from './ReactFiberWorkLoop';
 
 /** 创建 FiberRoot（官方 ReactFiberRoot.createFiberRoot 的公开入口）—— 第 3 章已可用 */
 export function createContainer(containerInfo: unknown): FiberRootNode {
   return createFiberRoot(containerInfo, ConcurrentRoot);
 }
 
-/**
- * 把 element 放进 root 并调度一次渲染 —— 第 4 章实现。
- * 届时需确定入队策略（官方走 UpdateQueue.enqueueUpdate）：mini 版第 4 章暂用
- * root.pendingChildren 直接挂载路径，UpdateQueue 模型留到第 6 章（hooks 更新）再补齐。
- */
-export function updateContainer(_element: unknown, _container: unknown): never {
-  throw new Error('[react-reconciler] updateContainer 尚未实现 —— 第 4 章开始填充。');
-}
+// render/commit 调度的公开入口（第 4 章）
+export { flushSyncCallbacks, scheduleUpdateOnFiber, updateContainer };

@@ -4,12 +4,11 @@
 // 1. ReactElement 不是"虚拟 DOM"，是一个纯描述对象，靠 $$typeof = Symbol.for('react.element') 标识；
 // 2. key / ref 是"元数据"，从 config 里剥离，绝不进 props；
 // 3. children "单个不包数组、多个成数组" —— 这是 React 稳定契约，渲染时才好处理。
-import { hasOwn } from '@mini-react/shared';
+import { hasOwn, REACT_ELEMENT_TYPE, REACT_FRAGMENT_TYPE } from '@mini-react/shared';
 import { ReactCurrentOwner } from './ReactCurrentOwner';
 
-// ---- 类型标识（Symbol.for 保证跨包/跨模块单例）----
-export const REACT_ELEMENT_TYPE: symbol = Symbol.for('react.element');
-export const REACT_FRAGMENT_TYPE: symbol = Symbol.for('react.fragment');
+// ---- 类型标识：来自 shared（react 生产元素、reconciler 消费元素，共用同一个 Symbol.for 身份）----
+export { REACT_ELEMENT_TYPE, REACT_FRAGMENT_TYPE };
 
 // ---- 公开类型 ----
 export type ReactKey = string | null;

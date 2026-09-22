@@ -10,7 +10,7 @@
 | 01  | React 是怎么打包的：还原 scripts/rollup 式构建脚手架 | ✅ 草稿待发 | —        |
 | 02  | createElement 与 JSX 运行时                          | 🕐 待成稿   | —        |
 | 03  | Fiber 数据结构与双缓冲                               | ✅ 已完成   | —        |
-| 04  | 首屏挂载全链路：render(workLoopSync)                 | 🕐 未开始   | —        |
+| 04  | 首屏挂载全链路：render(workLoopSync)                 | ✅ 已完成   | —        |
 | 05  | 提交阶段 commitRoot：三阶段与双缓存切换              | 🕐 未开始   | —        |
 | 06  | useState/useReducer：hook 链表与更新队列             | 🕐 未开始   | —        |
 | 07  | 更新调度：scheduleUpdateOnFiber 先走同步             | 🕐 未开始   | —        |

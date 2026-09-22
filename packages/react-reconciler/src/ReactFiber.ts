@@ -4,12 +4,13 @@
 // Fiber 是什么？一个可遍历的、带调度信息的节点树：
 // - 用 child / sibling / return 构成"链表树"，遍历不依赖递归（可随时中断）；
 // - 用 alternate 与 current 树成对，构成"双缓冲"：一棵是屏幕上已提交的，一棵是正在改的。
+import { REACT_ELEMENT_TYPE } from '@mini-react/shared';
 import { NoFlags, StaticMask } from './ReactFiberFlags';
 import type { Flags } from './ReactFiberFlags';
 import { NoLanes } from './ReactFiberLane';
 import type { Lanes } from './ReactFiberLane';
 import type { WorkTag } from './ReactWorkTags';
-import { HostRoot } from './ReactWorkTags';
+import { HostComponent, HostRoot, HostText, IndeterminateComponent } from './ReactWorkTags';
 
 export type FiberMode = number;
 
@@ -87,6 +88,49 @@ export function createFiber(
 export function createHostRootFiber(): FiberNode {
   return createFiber(HostRoot, null, null, ConcurrentMode);
 }
+
+/** element 的最小结构描述（reconciler 不该 import react，只靠结构 + $$typeof 判断） */
+export interface FiberElement {
+  $$typeof: symbol;
+  type: unknown;
+  key: null | string;
+  props: unknown;
+}
+
+/**
+ * 从 element 的 type/props 造一个 fiber —— 官方 createFiberFromTypeAndProps。
+ * 函数/类组件先记为 IndeterminateComponent（渲染时才确认），字符串类型是 HostComponent。
+ */
+export function createFiberFromTypeAndProps(
+  type: unknown,
+  key: null | string,
+  pendingProps: unknown,
+  mode: FiberMode,
+): FiberNode {
+  let fiberTag: WorkTag = IndeterminateComponent;
+  if (typeof type === 'string') {
+    fiberTag = HostComponent; // 'div' / 'span' ...
+  } else if (typeof type === 'function') {
+    fiberTag = IndeterminateComponent;
+  }
+  const fiber = createFiber(fiberTag, pendingProps, key, mode);
+  fiber.elementType = type;
+  fiber.type = type;
+  return fiber;
+}
+
+/** 从 element 造 fiber —— 官方 createFiberFromElement */
+export function createFiberFromElement(element: FiberElement, mode: FiberMode): FiberNode {
+  return createFiberFromTypeAndProps(element.type, element.key, element.props, mode);
+}
+
+/** 从文本造 fiber —— 官方 createFiberFromText（文本内容存在 pendingProps） */
+export function createFiberFromText(content: string, mode: FiberMode): FiberNode {
+  return createFiber(HostText, content, null, mode);
+}
+
+/** element 的 type 是否是文本节点候选（不用，供 ChildReconciler 判断用 REACT_ELEMENT_TYPE） */
+export { REACT_ELEMENT_TYPE };
 
 /**
  * 创建 workInProgress —— 双缓冲的灵魂。

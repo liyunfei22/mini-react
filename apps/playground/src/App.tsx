@@ -1,21 +1,18 @@
-import { createElement } from '@mini-react/react';
 import type { ReactElement } from '@mini-react/react';
 import { Demo01 } from './demos/01-create-element/Demo01';
+import { Demo02 } from './demos/02-mount/Demo02';
 
 /**
- * 第 1 章演示页：用"经典 createElement"（而非 JSX）拼装宿主元素树。
- * 配合 Demo01 的 JSX 路径，两条产 element 的路径在一页里对照展示。
+ * 演示页总览。现在它真的是一棵被 Fiber 渲染的函数组件树：
+ * App → Demo01 / Demo02 → host 元素，全部经 beginWork/completeWork 构建、commit 落 DOM。
  */
 export function App(): ReactElement {
-  return createElement(
-    'div',
-    { className: 'app' },
-    createElement('h1', null, 'mini-react —— 从零手写 React 18'),
-    createElement(
-      'p',
-      null,
-      '本页由手写 mini-render 渲染，展示 createElement 与 JSX 自动运行时的产物（第 4 章起改用 Fiber）。',
-    ),
-    Demo01(),
+  return (
+    <div className="app">
+      <h1>mini-react —— 从零手写 React 18</h1>
+      <p>本页由真正的 Fiber 渲染（createRoot，第 4 章），不再是第 1 章的递归 mini-render。</p>
+      <Demo01 />
+      <Demo02 />
+    </div>
   );
 }
