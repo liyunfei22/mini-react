@@ -6,10 +6,11 @@
 //       commit 时用 appendAllChildren 一次性把整棵子树挂进容器。
 // 第 4 章实现挂载（mount）路径含正确打标；复用/删除（diff）第 8 章补齐。
 import { REACT_ELEMENT_TYPE } from '@mini-react/shared';
-import { createFiberFromElement, createFiberFromText } from './ReactFiber';
+import { createFiberFromElement, createFiberFromText, createWorkInProgress } from './ReactFiber';
 import type { FiberNode } from './ReactFiber';
-import { Placement } from './ReactFiberFlags';
+import { ChildDeletion, Placement } from './ReactFiberFlags';
 import type { Lanes } from './ReactFiberLane';
+import { HostText } from './ReactWorkTags';
 
 type FiberElement = {
   $$typeof: symbol;
@@ -73,13 +74,66 @@ export function ChildReconciler(shouldTrackSideEffects: boolean) {
     return null;
   }
 
+  /** 复用旧 fiber（官方 useFiber：用 createWorkInProgress 造出它的 wip 版本，sibling 索引归零） */
+  function useFiber(fiber: FiberNode, pendingProps: unknown): FiberNode {
+    const clone = createWorkInProgress(fiber, pendingProps);
+    clone.index = 0;
+    clone.sibling = null;
+    return clone;
+  }
+
+  /** 把待删除的 current 子 fiber 记到父 fiber 的 deletions 列表（官方 deleteChild） */
+  function deleteChild(returnFiber: FiberNode, childToDelete: FiberNode): void {
+    const deletions = returnFiber.deletions;
+    if (deletions === null) {
+      returnFiber.deletions = [childToDelete];
+      returnFiber.flags |= ChildDeletion;
+    } else {
+      deletions.push(childToDelete);
+    }
+  }
+
+  /** 删除从某个起点开始的所有 current 兄弟 fiber（官方 deleteRemainingChildren） */
+  function deleteRemainingChildren(
+    returnFiber: FiberNode,
+    currentFirstChild: FiberNode | null,
+  ): null {
+    let childToDelete = currentFirstChild;
+    while (childToDelete !== null) {
+      deleteChild(returnFiber, childToDelete);
+      childToDelete = childToDelete.sibling;
+    }
+    return null;
+  }
+
   function reconcileSingleElement(
     returnFiber: FiberNode,
-    _currentFirstChild: FiberNode | null,
+    currentFirstChild: FiberNode | null,
     element: FiberElement,
     _lanes: Lanes,
   ): FiberNode {
-    // 挂载路径（第 8 章补更新复用逻辑）
+    const key = element.key;
+    let child = currentFirstChild;
+    while (child !== null) {
+      // ① key 相同
+      if (child.key === key) {
+        const elementType = element.type;
+        if (child.elementType === elementType) {
+          // 类型也相同 → 复用：删掉其余兄弟，用旧 fiber 造 wip
+          deleteRemainingChildren(returnFiber, child.sibling);
+          const existing = useFiber(child, element.props);
+          existing.return = returnFiber;
+          return existing;
+        }
+        // key 相同但类型不同（如 div → span）：旧节点及其兄弟全部作废，重建
+        deleteRemainingChildren(returnFiber, child);
+        break;
+      }
+      // ② key 不同：这个旧节点作废，继续找下一个
+      deleteChild(returnFiber, child);
+      child = child.sibling;
+    }
+    // ③ 找不到可复用的：全新创建
     const created = createFiberFromElement(element, returnFiber.mode);
     created.return = returnFiber;
     return created;
@@ -87,10 +141,18 @@ export function ChildReconciler(shouldTrackSideEffects: boolean) {
 
   function reconcileSingleTextNode(
     returnFiber: FiberNode,
-    _currentFirstChild: FiberNode | null,
+    currentFirstChild: FiberNode | null,
     textContent: string,
     _lanes: Lanes,
   ): FiberNode {
+    // 官方语义：已有文本 fiber（且仍是 HostText）就复用，否则删旧建新
+    if (currentFirstChild !== null && currentFirstChild.tag === HostText) {
+      deleteRemainingChildren(returnFiber, currentFirstChild.sibling);
+      const existing = useFiber(currentFirstChild, textContent);
+      existing.return = returnFiber;
+      return existing;
+    }
+    deleteRemainingChildren(returnFiber, currentFirstChild);
     const created = createFiberFromText(textContent, returnFiber.mode);
     created.return = returnFiber;
     return created;
@@ -98,10 +160,16 @@ export function ChildReconciler(shouldTrackSideEffects: boolean) {
 
   function reconcileChildrenArray(
     returnFiber: FiberNode,
-    _currentFirstChild: FiberNode | null,
+    currentFirstChild: FiberNode | null,
     newChildren: unknown[],
     lanes: Lanes,
   ): FiberNode | null {
+    // 更新路径下，第 5 章还没做 key 复用/移动（第 8 章），先整段删除旧子，再造新的——
+    // 否则旧 DOM 会残留、与新节点叠加重复。挂载路径（shouldTrackSideEffects=false）无需删。
+    if (shouldTrackSideEffects) {
+      deleteRemainingChildren(returnFiber, currentFirstChild);
+    }
+
     let resultingFirstChild: FiberNode | null = null;
     let previousNewFiber: FiberNode | null = null;
     let lastPlacedIndex = 0;
@@ -157,8 +225,8 @@ export function ChildReconciler(shouldTrackSideEffects: boolean) {
       );
     }
 
-    // null / undefined / false / ''：删除既有子节点（更新语义，第 8 章做）
-    return null;
+    // null / undefined / false / ''：视为"没有子节点" → 删除所有既有子节点
+    return deleteRemainingChildren(returnFiber, currentFirstChild);
   }
 
   return reconcileChildFibers;

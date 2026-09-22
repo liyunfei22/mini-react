@@ -42,6 +42,7 @@ function makeHost(): HostConfig {
       const children = (container as unknown as TestElement).children;
       children.splice(children.indexOf(child as TestNode), 1);
     },
+    prepareUpdate: () => null,
     commitUpdate: () => {},
     commitTextUpdate: () => {},
     getPublicInstance: (instance) => instance,

@@ -1,12 +1,20 @@
 // 对应官方 packages/react-reconciler/src/ReactFiberCommitWork.old.js。
-// commit 阶段：把 render 阶段"描述好的改动"落到 host（DOM）上。
-// 第 4 章只做 Mutation（Placement 插入）+ 双缓冲切换；三阶段（Before/Mutation/Layout）第 5 章展开。
+// commit 阶段把 render 阶段"描述好的改动"落到 host（DOM）。三阶段：
+//   beforeMutation → mutation → `root.current = finishedWork` → layout
+// 交换时机是本章的头号细节：mutation 用旧 current 做 DOM 增删改，改完才换指针，
+// layout 阶段（refs/layout effects）读到的是新树。
 import { hostConfig } from './HostConfig';
 import type { FiberNode } from './ReactFiber';
-import { Placement } from './ReactFiberFlags';
+import { MutationMask, Placement, Update } from './ReactFiberFlags';
 import { NoLanes } from './ReactFiberLane';
 import type { FiberRootNode } from './ReactFiberRoot';
-import { HostComponent, HostRoot, HostText } from './ReactWorkTags';
+import {
+  FunctionComponent,
+  HostComponent,
+  HostRoot,
+  HostText,
+  IndeterminateComponent,
+} from './ReactWorkTags';
 
 export function commitRoot(root: FiberRootNode): void {
   commitRootImpl(root);
@@ -21,30 +29,107 @@ function commitRootImpl(root: FiberRootNode): void {
   root.finishedLanes = NoLanes;
   root.pendingLanes = NoLanes;
 
-  // 突变阶段：这里只有 Placement（挂载）
+  // 阶段一 beforeMutation：类组件 getSnapshotBeforeUpdate / passive 卸载（第 9 章补实现）
+  commitBeforeMutationEffects(root, finishedWork);
+
+  // 阶段二 mutation：真正的 DOM 增删改（此时 root.current 仍是旧树）
   commitMutationEffects(root, finishedWork);
 
-  // 双缓冲切换：一行指针赋值，屏幕树从此变为成品树（before/layout 阶段的时序第 5 章细化）
+  // ---- 交换时机：mutation 之后、layout 之前 ----
   root.current = finishedWork;
+
+  // 阶段三 layout：refs 挂载 / layout effects（第 9/12 章补实现）
+  commitLayoutEffects(root, finishedWork);
 }
 
+// ---- 阶段一 / 阶段三：目前仅有结构，body 待后续章节填充 ----
+function commitBeforeMutationEffects(_root: FiberRootNode, _finishedWork: FiberNode): void {
+  // TODO(第9章)：递归跑 getSnapshotBeforeUpdate + 卸载惰性副作用
+}
+
+function commitLayoutEffects(_root: FiberRootNode, _finishedWork: FiberNode): void {
+  // TODO(第9/12章)：attachRef + commitHookEffectListMount(Layout)
+}
+
+// ---- 阶段二：mutation ----
 function commitMutationEffects(root: FiberRootNode, finishedWork: FiberNode): void {
   recursivelyTraverseMutationEffects(root, finishedWork);
 }
 
 function recursivelyTraverseMutationEffects(root: FiberRootNode, parentFiber: FiberNode): void {
-  let child = parentFiber.child;
-  while (child !== null) {
-    commitMutationEffectsOnFiber(child, root);
-    child = child.sibling;
+  // ① 先处理"要删除"的旧节点（其 DOM 还挂在旧 current 上）
+  const deletions = parentFiber.deletions;
+  if (deletions !== null) {
+    for (const childToDelete of deletions) {
+      commitDeletionEffects(root, childToDelete);
+    }
+  }
+  // ② 子树有 mutation 副作用才继续下探（subtreeFlags 剪枝，render 阶段已 bubbleProperties）
+  if ((parentFiber.subtreeFlags & MutationMask) !== 0) {
+    let child = parentFiber.child;
+    while (child !== null) {
+      commitMutationEffectsOnFiber(child, root);
+      child = child.sibling;
+    }
   }
 }
 
 function commitMutationEffectsOnFiber(finishedWork: FiberNode, root: FiberRootNode): void {
-  // 先处理子树（子节点的 Placement 先落位），再处理自己
-  recursivelyTraverseMutationEffects(root, finishedWork);
+  const flags = finishedWork.flags;
+  switch (finishedWork.tag) {
+    case FunctionComponent:
+    case IndeterminateComponent: {
+      recursivelyTraverseMutationEffects(root, finishedWork);
+      commitReconciliationEffects(finishedWork);
+      return;
+    }
+    case HostRoot: {
+      recursivelyTraverseMutationEffects(root, finishedWork);
+      commitReconciliationEffects(finishedWork);
+      return;
+    }
+    case HostComponent: {
+      recursivelyTraverseMutationEffects(root, finishedWork);
+      commitReconciliationEffects(finishedWork);
+      if ((flags & Update) !== 0) {
+        const instance = finishedWork.stateNode;
+        const current = finishedWork.alternate;
+        // oldProps 取"上一次提交"的 current.memoizedProps；current 为空时兜底到自身
+        const oldProps = (
+          current !== null ? current.memoizedProps : finishedWork.memoizedProps
+        ) as Record<string, unknown>;
+        const newProps = finishedWork.memoizedProps as Record<string, unknown>;
+        hostConfig.commitUpdate(
+          instance,
+          finishedWork.updateQueue,
+          finishedWork.type as string,
+          oldProps,
+          newProps,
+        );
+      }
+      return;
+    }
+    case HostText: {
+      recursivelyTraverseMutationEffects(root, finishedWork);
+      commitReconciliationEffects(finishedWork);
+      if ((flags & Update) !== 0) {
+        const current = finishedWork.alternate;
+        // 官方：文本更新的新值直接读 finishedWork.memoizedProps（不占 updateQueue）
+        const newText = finishedWork.memoizedProps as string;
+        const oldText = (current !== null ? current.memoizedProps : newText) as string;
+        hostConfig.commitTextUpdate(finishedWork.stateNode, oldText, newText);
+      }
+      return;
+    }
+    default:
+      return;
+  }
+}
 
-  if ((finishedWork.flags & Placement) !== 0) {
+/** 处理 Placement / Deletion 这两类"结构型"副作用（官方 commitReconciliationEffects） */
+function commitReconciliationEffects(finishedWork: FiberNode): void {
+  const flags = finishedWork.flags;
+  if ((flags & Placement) !== 0) {
     commitPlacement(finishedWork);
     finishedWork.flags &= ~Placement;
   }
@@ -71,19 +156,47 @@ function getRootFromHostRootFiber(fiber: FiberNode): FiberRootNode {
   return node.stateNode as FiberRootNode;
 }
 
-function commitPlacement(finishedWork: FiberNode): void {
-  const parentFiber = getHostParentFiber(finishedWork);
+/** 取得"承载当前 DOM"的父级引用（container 或 host 实例） */
+function getHostParent(fiber: FiberNode): { parent: unknown; isContainer: boolean } {
+  const parentFiber = getHostParentFiber(fiber);
   const isContainer = parentFiber.tag === HostRoot;
   const parent = isContainer
     ? getRootFromHostRootFiber(parentFiber).containerInfo
     : parentFiber.stateNode;
+  return { parent, isContainer };
+}
 
+function commitPlacement(finishedWork: FiberNode): void {
+  const { parent, isContainer } = getHostParent(finishedWork);
+  // before 恒 null（永远挂尾）；官方这里用 getHostSibling 算出"插到哪个兄弟前"——
+  // 那种重排/插中间的语义待第 8 章数组 diff（move）落地时一起补齐。
   insertOrAppendPlacementNode(finishedWork, null, parent, isContainer);
 }
 
+/** 删除一个旧 fiber 对应的真实 DOM（第 9 章补递归卸载副作用/清理 ref） */
+function commitDeletionEffects(root: FiberRootNode, fiberToDelete: FiberNode): void {
+  const tag = fiberToDelete.tag;
+  if (tag === HostComponent || tag === HostText) {
+    // host 节点：删它一个，其 DOM 子树就一起没了，绝不能再去递归删子节点（会重复 remove）
+    const { parent, isContainer } = getHostParent(fiberToDelete);
+    if (isContainer) {
+      hostConfig.removeChildFromContainer(parent, fiberToDelete.stateNode);
+    } else {
+      hostConfig.removeChild(parent, fiberToDelete.stateNode);
+    }
+    return;
+  }
+  // 组件/wrapper 层节点：自身无 DOM，递归删除其 host 子孙
+  let child = fiberToDelete.child;
+  while (child !== null) {
+    commitDeletionEffects(root, child);
+    child = child.sibling;
+  }
+}
+
 /**
- * 挂载时：待插入节点是"根底下带 Placement 的那一个"——它的整个子树都已由
- * completeWork 的 appendAllChildren 拼成一颗完整的 host 实例树，这里一次性挂进去即可。
+ * 挂载/移动通用：待插入节点若是 host 直接插入；若是组件层则下探到它的每个 host 叶。
+ * 挂载时整棵子树已由 completeWork 的 appendAllChildren 拼好，插根节点就够。
  */
 function insertOrAppendPlacementNode(
   node: FiberNode,
@@ -102,7 +215,6 @@ function insertOrAppendPlacementNode(
       hostConfig.appendChild(parent, stateNode);
     }
   } else {
-    // 组件包装层：下探到它的 host 子节点，逐个插入到同一父级
     let child = node.child;
     while (child !== null) {
       insertOrAppendPlacementNode(child, before, parent, isContainer);

@@ -9,7 +9,7 @@
 /** 渲染器看到的 props（宽松类型，宿主实现负责消费） */
 export type Props = Record<string, unknown>;
 
-/** 最小 Host 接口：13 个成员，覆盖挂载/更新/删除/文本 四类 DOM 操作 */
+/** 最小 Host 接口：覆盖挂载/更新/删除/文本 四类 DOM 操作（prepareUpdate 第 5 章加入） */
 export interface HostConfig {
   /** 根容器的上下文（DOM 实现可返回 document 对应的命名空间等） */
   getRootHostContext(rootContainer: unknown): unknown;
@@ -24,7 +24,21 @@ export interface HostConfig {
   insertBefore(parentInstance: unknown, child: unknown, before: unknown): void;
   removeChild(parentInstance: unknown, child: unknown): void;
   removeChildFromContainer(container: unknown, child: unknown): void;
-  commitUpdate(instance: unknown, oldProps: Props, newProps: Props, type: string): void;
+  /** 计算 props diff（官方 prepareUpdate）。无变化返回 null，否则返回 updatePayload */
+  prepareUpdate(
+    instance: unknown,
+    type: string,
+    oldProps: Props,
+    newProps: Props,
+  ): unknown[] | null;
+  /** 应用 props 更新（官方 commitUpdate：instance 是复用节点，updatePayload 是 prepareUpdate 的产物） */
+  commitUpdate(
+    instance: unknown,
+    updatePayload: unknown,
+    type: string,
+    oldProps: Props,
+    newProps: Props,
+  ): void;
   commitTextUpdate(textInstance: unknown, oldText: string, newText: string): void;
   getPublicInstance(instance: unknown): unknown;
 }
@@ -68,8 +82,10 @@ export const hostConfig: HostConfig = {
     host().insertBefore(parentInstance, child, before),
   removeChild: (parentInstance, child) => host().removeChild(parentInstance, child),
   removeChildFromContainer: (container, child) => host().removeChildFromContainer(container, child),
-  commitUpdate: (instance, oldProps, newProps, type) =>
-    host().commitUpdate(instance, oldProps, newProps, type),
+  prepareUpdate: (instance, type, oldProps, newProps) =>
+    host().prepareUpdate(instance, type, oldProps, newProps),
+  commitUpdate: (instance, updatePayload, type, oldProps, newProps) =>
+    host().commitUpdate(instance, updatePayload, type, oldProps, newProps),
   commitTextUpdate: (textInstance, oldText, newText) =>
     host().commitTextUpdate(textInstance, oldText, newText),
   getPublicInstance: (instance) => host().getPublicInstance(instance),

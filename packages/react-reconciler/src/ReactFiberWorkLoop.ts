@@ -60,6 +60,13 @@ function completeUnitOfWork(unitOfWork: FiberNode): void {
       return;
     }
 
+    // 上冒副作用（官方 bubbleProperties）：父亲要能知道"我子树里有没有要 commit 的改动"，
+    // 否则 commit 阶段的 subtreeFlags 剪枝会漏掉整棵子树。
+    if (returnFiber !== null) {
+      returnFiber.subtreeFlags |= completedWork.flags;
+      returnFiber.subtreeFlags |= completedWork.subtreeFlags;
+    }
+
     // 有兄弟 → 去兄弟；否则一路回到 return
     const siblingFiber = completedWork.sibling;
     if (siblingFiber !== null) {

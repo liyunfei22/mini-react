@@ -38,7 +38,7 @@ function applyStyle(node: HTMLElement, style: Record<string, string | number>): 
   }
 }
 
-/** 应用一组 props 到 DOM 节点（初建与 commitUpdate 共用） */
+/** 应用一组 props 到 DOM 节点（初建用） */
 function setPropsToNode(node: HTMLElement, props: Props): void {
   for (const key in props) {
     const value = props[key];
@@ -61,6 +61,25 @@ function setPropsToNode(node: HTMLElement, props: Props): void {
       node.removeAttribute(key);
     }
   }
+}
+
+/**
+ * 计算 props 差分 —— 官方 diffProperties 的 mini 版。
+ * 返回扁平数组 [key1, value1, key2, value2, ...]；value 为 null 表示"删除该属性"。
+ * 事件（onXxx）的更新暂不在此 diff（第 13 章用根委托事件系统统一处理）。
+ */
+function diffProperties(oldProps: Props, newProps: Props): unknown[] | null {
+  const updates: unknown[] = [];
+  const keys = new Set([...Object.keys(oldProps), ...Object.keys(newProps)]);
+  keys.delete('children');
+  for (const key of keys) {
+    if (key.startsWith('on')) continue;
+    const oldValue = oldProps[key];
+    const newValue = newProps[key];
+    if (oldValue === newValue) continue;
+    updates.push(key, newValue == null ? null : newValue);
+  }
+  return updates.length > 0 ? updates : null;
 }
 
 export const ReactDOMHostConfig: HostConfig = {
@@ -98,8 +117,31 @@ export const ReactDOMHostConfig: HostConfig = {
   removeChildFromContainer(container, child) {
     (container as Node).removeChild(child as Node);
   },
-  commitUpdate(instance, _oldProps, newProps) {
-    setPropsToNode(instance as HTMLElement, newProps);
+  prepareUpdate(_instance, _type, oldProps, newProps) {
+    return diffProperties(oldProps, newProps);
+  },
+  commitUpdate(instance, updatePayload, _type, _oldProps, _newProps) {
+    const node = instance as HTMLElement;
+    const payload = updatePayload as unknown[];
+    for (let i = 0; i < payload.length; i += 2) {
+      const key = payload[i] as string;
+      const value = payload[i + 1];
+      if (key === 'style') {
+        if (value && typeof value === 'object') {
+          applyStyle(node, value as Record<string, string | number>);
+        } else {
+          node.removeAttribute('style');
+        }
+      } else if (key === 'className') {
+        node.className = String(value ?? '');
+      } else if (value == null || value === false) {
+        node.removeAttribute(key);
+      } else if (typeof value === 'boolean') {
+        node.setAttribute(key, '');
+      } else {
+        node.setAttribute(key, String(value));
+      }
+    }
   },
   commitTextUpdate(textInstance, _oldText, newText) {
     (textInstance as Text).nodeValue = newText;

@@ -1,15 +1,16 @@
 // 对应官方 packages/react-reconciler/src/ReactFiberCompleteWork.old.js。
-// completeWork 自底向上执行：孩子都 complete 之后轮到父亲，此时才创建真实 host 实例
-// （因为父实例需要先拿到子实例做 appendInitialChild）。
+// completeWork 自底向上执行：孩子都 complete 之后轮到父亲，此时才创建/更新真实 host 实例。
+// 挂载：createInstance；更新：prepareUpdate 算 props 差分 → 打 Update，commit 再用 payload 落 DOM。
 import { hostConfig } from './HostConfig';
 import type { FiberNode } from './ReactFiber';
+import { Update } from './ReactFiberFlags';
 import type { Lanes } from './ReactFiberLane';
 import {
+  FunctionComponent,
   HostComponent,
   HostRoot,
   HostText,
   IndeterminateComponent,
-  FunctionComponent,
 } from './ReactWorkTags';
 
 /**
@@ -42,8 +43,9 @@ function appendAllChildren(parentInstance: unknown, workInProgress: FiberNode): 
 }
 
 /**
- * completeWork —— 官方同名函数的 mini 版。
- * 只处理"建 host 实例"这一核心职责；props 更新（commitUpdate）第 5 章。
+ * completeWork —— 官方同名函数的 mini 版（挂载 + 更新两态）。
+ * 侧重点：HostComponent 复用 stateNode 后，用 prepareUpdate 求出 props 差分存入 updateQueue，
+ * 有变化才打 Update flag —— commit 阶段据此决定要不要 commitUpdate。
  */
 export function completeWork(
   current: FiberNode | null,
@@ -55,22 +57,42 @@ export function completeWork(
     case HostComponent: {
       const type = workInProgress.type as string;
       if (current === null || current.stateNode === null) {
+        // 挂载：建实例 + 挂孩子
         const instance = hostConfig.createInstance(
           type,
           newProps as Record<string, unknown>,
           null,
           null,
         );
-        // 孩子已完成，把它们的实例挂进这个刚建的父实例
         appendAllChildren(instance, workInProgress);
         workInProgress.stateNode = instance;
+      } else {
+        // 更新：复用 current 的 stateNode，求 props 差分
+        const oldProps = current.memoizedProps as Record<string, unknown>;
+        const instance = workInProgress.stateNode;
+        const updatePayload = hostConfig.prepareUpdate(
+          instance,
+          type,
+          oldProps,
+          newProps as Record<string, unknown>,
+        );
+        workInProgress.updateQueue = updatePayload;
+        if (updatePayload !== null) {
+          workInProgress.flags |= Update;
+        }
       }
-      // 更新路径：prepareUpdate / commitUpdate（第 5 章）
       return null;
     }
     case HostText: {
       if (current === null || current.stateNode === null) {
         workInProgress.stateNode = hostConfig.createTextInstance(String(newProps), null, null);
+      } else {
+        // 文本更新：内容变了才打 Update（官方只 markUpdate，commit 阶段直接读 memoizedProps）
+        const oldText = current.memoizedProps as string;
+        const newText = String(newProps);
+        if (oldText !== newText) {
+          workInProgress.flags |= Update;
+        }
       }
       return null;
     }
