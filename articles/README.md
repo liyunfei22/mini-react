@@ -9,7 +9,7 @@
 | 00  | 系列导读：为什么读 React 源码                        | ✅ 草稿待发 | —        |
 | 01  | React 是怎么打包的：还原 scripts/rollup 式构建脚手架 | ✅ 草稿待发 | —        |
 | 02  | createElement 与 JSX 运行时                          | 🕐 待成稿   | —        |
-| 03  | Fiber 数据结构与双缓冲                               | 🕐 未开始   | —        |
+| 03  | Fiber 数据结构与双缓冲                               | ✅ 已完成   | —        |
 | 04  | 首屏挂载全链路：render(workLoopSync)                 | 🕐 未开始   | —        |
 | 05  | 提交阶段 commitRoot：三阶段与双缓存切换              | 🕐 未开始   | —        |
 | 06  | useState/useReducer：hook 链表与更新队列             | 🕐 未开始   | —        |

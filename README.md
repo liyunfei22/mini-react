@@ -85,7 +85,7 @@ apps/playground ─▶ @mini-react/react / react-dom（仅 apps 层可 import re
 | 00    | 系列导读                                             | ✅ 草稿待发（articles/00）            |
 | 01    | React 是怎么打包的：还原 scripts/rollup 式构建脚手架 | ✅ 草稿待发（articles/01）            |
 | 02    | createElement 与 JSX 运行时                          | ✅ 已完成（packages/react + 23 单测） |
-| 03    | Fiber 数据结构与双缓冲                               | 🕐 未开始                             |
+| 03    | Fiber 数据结构与双缓冲                               | ✅ 已完成                             |
 | 04    | 首屏挂载全链路：render(workLoopSync)                 | 🕐 未开始                             |
 | 05    | 提交阶段 commitRoot                                  | 🕐 未开始                             |
 | 06~10 | Hooks 全家桶                                         | 🕐 未开始                             |
