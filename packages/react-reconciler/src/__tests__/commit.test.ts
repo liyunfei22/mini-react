@@ -89,6 +89,48 @@ function el(type: unknown, props: Record<string, unknown> | null, ...children: u
   return { $$typeof: REACT_ELEMENT_TYPE, type, key: key as null | string, props: nextProps };
 }
 
+describe('调度：ensureRootIsScheduled / callbackNode 复用', () => {
+  it('同一批次多次 updateContainer 只渲染一次（同 lane 不重复调度）', () => {
+    ops.length = 0;
+    const container = { children: [] };
+    const root = createContainer(container);
+    let renders = 0;
+
+    function App() {
+      renders++;
+      return el('div', null, 'x');
+    }
+
+    updateContainer(el(App, null), root);
+    updateContainer(el(App, null), root); // 同 SyncLane，flush 前
+    updateContainer(el(App, null), root);
+    flushSyncCallbacks();
+
+    // callbackNode 复用 → 只调度一次 → 渲染一次
+    expect(renders).toBe(1);
+  });
+
+  it('flush 后 callback 复位，再次调度仍能渲染', () => {
+    ops.length = 0;
+    const container = { children: [] };
+    const root = createContainer(container);
+    let renders = 0;
+
+    function App() {
+      renders++;
+      return el('div', null, String(renders));
+    }
+
+    updateContainer(el(App, null), root);
+    flushSyncCallbacks();
+    expect(renders).toBe(1);
+
+    updateContainer(el(App, null), root);
+    flushSyncCallbacks();
+    expect(renders).toBe(2);
+  });
+});
+
 describe('提交阶段：更新 / 删除 / 顺序', () => {
   it('类型变化：先删旧、再插新（mutation 内部 order）', () => {
     ops.length = 0;

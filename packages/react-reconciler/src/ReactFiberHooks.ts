@@ -7,10 +7,9 @@
 // （内部类型刻意用 unknown，避免泛型协变把 HookQueue 互相排斥；边界处按需断言。）
 import { ReactSharedInternals, objectIs } from '@mini-react/shared';
 import type { Dispatcher, Dispatch, Reducer, SetStateAction } from '@mini-react/shared';
-import { SyncLane } from './ReactFiberLane';
 import type { FiberNode } from './ReactFiber';
 import type { FiberRootNode } from './ReactFiberRoot';
-import { scheduleUpdateOnFiber } from './ReactFiberWorkLoop';
+import { requestUpdateLane, scheduleUpdateOnFiber } from './ReactFiberWorkLoop';
 
 // ---- 类型（非泛型，边界断言）----
 interface Update {
@@ -257,7 +256,8 @@ function dispatchReducerAction(fiber: FiberNode, queue: HookQueue, action: unkno
   }
   enqueueUpdate(queue, action);
   const root = getRootForUpdatedFiber(fiber);
-  scheduleUpdateOnFiber(root, fiber, SyncLane);
+  const lane = requestUpdateLane(fiber);
+  scheduleUpdateOnFiber(root, fiber, lane);
 }
 
 function dispatchSetState<S>(fiber: FiberNode, queue: HookQueue, action: SetStateAction<S>): void {

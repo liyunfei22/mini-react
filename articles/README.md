@@ -13,7 +13,7 @@
 | 04  | 首屏挂载全链路：render(workLoopSync)                 | ✅ 已完成   | —        |
 | 05  | 提交阶段 commitRoot：三阶段与双缓存切换              | ✅ 已完成   | —        |
 | 06  | useState/useReducer：hook 链表与更新队列             | ✅ 已完成   | —        |
-| 07  | 更新调度：scheduleUpdateOnFiber 先走同步             | 🕐 未开始   | —        |
+| 07  | 更新调度：scheduleUpdateOnFiber 先走同步             | ✅ 已完成   | —        |
 | 08  | Reconciliation / Diff：key 心智模型                  | 🕐 未开始   | —        |
 | 09  | useEffect/useLayoutEffect：副作用链表                | 🕐 未开始   | —        |
 | 10  | useMemo/useCallback/useRef 一种套路                  | 🕐 未开始   | —        |

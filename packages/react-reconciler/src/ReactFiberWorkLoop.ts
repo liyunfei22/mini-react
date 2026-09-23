@@ -1,13 +1,21 @@
 // 对应官方 packages/react-reconciler/src/ReactFiberWorkLoop.old.js。
-// 这是整台机器的"主循环"：scheduleUpdateOnFiber 被调用 → 同步入队 → workLoopSync 用
-// beginWork/completeWork 把 element 变成一棵 Fiber 树 → commitRoot 落到 DOM。
-// 第 14~16 章会在此基础上加并发（workLoopConcurrent 的 shouldYield 判断、Scheduler、Lane 优先级）。
+// 这是整台机器的"主循环"：requestUpdateLane 定优先级 → scheduleUpdateOnFiber → ensureRootIsScheduled
+// （同步/并发两分支的调度中枢）→ workLoopSync 渲染 → commitRoot 落地。
+// 第 14~16 章会在此加并发（workLoopConcurrent 的 shouldYield、Scheduler、Lane 优先级）。
 import { completeWork } from './ReactFiberCompleteWork';
 import { beginWork } from './ReactFiberBeginWork';
 import { commitRoot } from './ReactFiberCommitWork';
 import { createWorkInProgress } from './ReactFiber';
 import type { FiberNode } from './ReactFiber';
-import { NoLanes, SyncLane } from './ReactFiberLane';
+import {
+  getHighestPriorityLane,
+  getNextLanes,
+  includesSyncLane,
+  NoLane,
+  NoLanes,
+  removeLanes,
+  SyncLane,
+} from './ReactFiberLane';
 import type { Lane } from './ReactFiberLane';
 import type { FiberRootNode } from './ReactFiberRoot';
 import {
@@ -27,47 +35,42 @@ function prepareFreshStack(root: FiberRootNode): void {
 }
 
 /** 同步渲染主循环：没有 shouldYield —— 这就是"同步"与"并发"的唯一区别点 */
-function workLoopSync(): void {
+function workLoopSync(lanes: Lane): void {
   while (workInProgress !== null) {
-    performUnitOfWork(workInProgress);
+    performUnitOfWork(workInProgress, lanes);
   }
 }
 
-function performUnitOfWork(unitOfWork: FiberNode): void {
+function performUnitOfWork(unitOfWork: FiberNode, lanes: Lane): void {
   const current = unitOfWork.alternate;
-  // 第 4 章固定走同步渲染：renderLanes 一律是 SyncLane（第 7/15 章才有多 lane 分派）
-  const next = beginWork(current, unitOfWork, SyncLane);
+  const next = beginWork(current, unitOfWork, lanes);
   unitOfWork.memoizedProps = unitOfWork.pendingProps;
   if (next === null) {
-    // 这层没孩子了：向上"收口"
-    completeUnitOfWork(unitOfWork);
+    completeUnitOfWork(unitOfWork, lanes);
   } else {
-    // 有孩子：游标往下走
     workInProgress = next;
   }
 }
 
-function completeUnitOfWork(unitOfWork: FiberNode): void {
+function completeUnitOfWork(unitOfWork: FiberNode, lanes: Lane): void {
   let completedWork: FiberNode | null = unitOfWork;
   do {
     const current = completedWork.alternate;
     // 显式标注避免 TS 在 do...while 内对 completedWork/returnFiber 做循环引用推断
     const returnFiber: FiberNode | null = completedWork.return;
 
-    const next = completeWork(current, completedWork, SyncLane);
+    const next = completeWork(current, completedWork, lanes);
     if (next !== null) {
       workInProgress = next;
       return;
     }
 
-    // 上冒副作用（官方 bubbleProperties）：父亲要能知道"我子树里有没有要 commit 的改动"，
-    // 否则 commit 阶段的 subtreeFlags 剪枝会漏掉整棵子树。
+    // 上冒副作用（官方 bubbleProperties）
     if (returnFiber !== null) {
       returnFiber.subtreeFlags |= completedWork.flags;
       returnFiber.subtreeFlags |= completedWork.subtreeFlags;
     }
 
-    // 有兄弟 → 去兄弟；否则一路回到 return
     const siblingFiber = completedWork.sibling;
     if (siblingFiber !== null) {
       workInProgress = siblingFiber;
@@ -78,29 +81,35 @@ function completeUnitOfWork(unitOfWork: FiberNode): void {
   } while (completedWork !== null);
 }
 
-function renderRootSync(root: FiberRootNode): void {
+function renderRootSync(root: FiberRootNode, lanes: Lane): void {
   prepareFreshStack(root);
-  workLoopSync();
-  // 成品树 = root.current 的 alternate（prepareFreshStack 里 createWorkInProgress 已让两者互为 alternate）。
-  // 不能读 workInProgress —— workLoop 结束后它已经是 null（游标走完了）。
+  workLoopSync(lanes);
+  // 成品树 = root.current 的 alternate（prepareFreshStack 里 createWorkInProgress 已让两者互为 alternate）
   root.finishedWork = root.current.alternate;
+  root.finishedLanes = lanes;
   workInProgress = null;
 }
 
 /** 同步渲染 + commit（官方 performSyncWorkOnRoot 的精简） */
 function performSyncWorkOnRoot(root: FiberRootNode): void {
+  const renderLanes = getNextLanes(root);
   try {
-    renderRootSync(root);
+    renderRootSync(root, renderLanes);
     if (root.finishedWork !== null) {
       commitRoot(root);
     }
   } finally {
-    // 渲染/提交抛错也必须复位，否则 pendingLanes 卡住 → scheduleUpdateOnFiber 的
-    // 早退守卫恒真，后续所有更新被静默吞掉（第 6 章 'Rendered more hooks' 就是这条路径）。
-    if (root.finishedWork !== null) {
-      root.finishedWork = null;
-    }
-    root.pendingLanes = NoLanes;
+    // 无论成败都复位：抛错后 pendingLanes 残留会卡死后续调度、callbackNode 残留会让
+    // 下次 ensureRootIsScheduled 误判"已调度"而吞更新，故两者都必须在 finally 里清。
+    root.finishedWork = null;
+    root.pendingLanes = removeLanes(root.pendingLanes, renderLanes);
+    root.callbackNode = null;
+    root.callbackPriority = NoLanes;
+  }
+  // 成功结束时：若还有残留 lane，续排下一批（第 15 章多 lane 的入口）。
+  // 抛错时本行不执行，但 finally 已清干净，下次调度可恢复（见 hooks.test 的"抛错后 root 复用"）。
+  if (root.pendingLanes !== NoLanes) {
+    ensureRootIsScheduled(root);
   }
 }
 
@@ -109,28 +118,68 @@ function markRootUpdated(root: FiberRootNode, lane: Lane): void {
   root.pendingLanes |= lane;
 }
 
-/** 调度一次更新：官方 scheduleUpdateOnFiber 的精简（只走同步快捷路径） */
-export function scheduleUpdateOnFiber(root: FiberRootNode, fiber: FiberNode, lane: Lane): void {
-  if ((root.pendingLanes & lane) !== 0) {
-    // 该泳道已有更新排队：合并，不重复入队（官方 ensureRootIsScheduled 复用 callbackNode 的同义守卫）
-    return;
-  }
-  markRootUpdated(root, lane);
-  scheduleSyncCallback(() => performSyncWorkOnRoot(root));
-  // 把真正执行推迟到一个 microtask（批处理的基础，第 7 章会展开"为什么"）
-  scheduleMicrotask(flushSyncCallbacks);
+/** 决定一次更新的优先级 lane（官方 requestUpdateLane 的骨架，四条路径留全占位） */
+export function requestUpdateLane(_fiber: FiberNode): Lane {
+  // 官方四条路径（按顺序）：
+  // ① legacy mode（mode 不含 ConcurrentMode）→ SyncLane；本仓库只做并发模式，不需要。
+  // ② 渲染期更新（executionContext & RenderContext）→ pickArbitraryLane(workInProgressRootRenderLanes)；第 16 章。
+  // ③ transition → claimNextTransitionLane()；第 16 章。
+  // ④ flushSync 等显式优先级（getCurrentUpdatePriority）→ 直接使用；第 15 章。
+  // ⑤ 否则读当前事件优先级 → 映射到 lane；第 15 章事件系统接上后补。
+  // 现阶段（无事件/无 transition）统一回落到同步泳道。
+  return SyncLane;
 }
 
 /**
- * 把一个 element 挂到 root 上并调度渲染 —— 官方 updateContainer 的 mini 版。
+ * 调度中枢（官方 ensureRootIsScheduled）：按"最高优先级 lane 是否 sync"分派到
+ * 同步快捷路径（scheduleSyncCallback）或并发路径（第 16 章 Scheduler）。
+ * 复用判断用 callbackNode/callbackPriority（官方语义），不是"lane 位已在 pending 里"。
+ */
+function ensureRootIsScheduled(root: FiberRootNode): void {
+  const nextLanes = getNextLanes(root);
+  if (nextLanes === NoLanes) {
+    // 无事可做：没有待调度 lane（官方还会 cancel 掉现有 callback）
+    root.callbackNode = null;
+    root.callbackPriority = NoLane;
+    return;
+  }
+  const newCallbackPriority = getHighestPriorityLane(nextLanes);
+
+  if (includesSyncLane(newCallbackPriority)) {
+    // 同步路径：只有"优先级变了 / 还没调度"才重新入队
+    if (root.callbackNode === null || root.callbackPriority !== newCallbackPriority) {
+      scheduleSyncCallback(() => performSyncWorkOnRoot(root));
+      scheduleMicrotask(flushSyncCallbacks);
+      root.callbackPriority = newCallbackPriority;
+      root.callbackNode = {}; // 占位（第 16 章换成真正 scheduler task）
+    }
+  } else {
+    // 并发路径：第 14~16 章 scheduleCallback(Scheduler, performConcurrentWorkOnRoot)
+    throw new Error('[react-reconciler] 并发调度尚未实现（第 14~16 章）。');
+  }
+}
+
+/**
+ * 调度一次更新（官方 scheduleUpdateOnFiber 的精简）。
+ * 官方此处还有 render-phase 分支（渲染中触发 → mergeLanes 到 workInProgressRootRenderPhaseUpdatedLanes
+ * 留待本轮结束重渲染）；mini 版第 6 章已由 dispatch 端抛错拦截渲染期更新，故 `fiber` 暂不使用。
+ */
+export function scheduleUpdateOnFiber(root: FiberRootNode, _fiber: FiberNode, lane: Lane): void {
+  markRootUpdated(root, lane);
+  ensureRootIsScheduled(root);
+}
+
+/**
+ * 把一个 element 挂到 root 上并调度渲染 —— 官方 updateContainer 的精简。
  * 第 4 章用 pendingProps 直传（第 6 章换成真正的 UpdateQueue.enqueueUpdate 路径）。
  */
 export function updateContainer(element: unknown, container: FiberRootNode): void {
   const current = container.current;
   current.pendingProps = { children: element };
-  // 第 4 章固定走同步 lane（第 7 章 requestUpdateLane 再谈优先级来源）
-  scheduleUpdateOnFiber(container, current, SyncLane);
+  const lane = requestUpdateLane(current);
+  scheduleUpdateOnFiber(container, current, lane);
 }
 
 /** 测试/公开用：同步 drain 调度队列（ReactDOM.render 用它做同步渲染承诺） */
 export { flushSyncCallbacks };
+export type { Lane };

@@ -6,7 +6,7 @@
 import { hostConfig } from './HostConfig';
 import type { FiberNode } from './ReactFiber';
 import { MutationMask, Placement, Update } from './ReactFiberFlags';
-import { NoLanes } from './ReactFiberLane';
+import { NoLanes, removeLanes } from './ReactFiberLane';
 import type { FiberRootNode } from './ReactFiberRoot';
 import {
   FunctionComponent,
@@ -25,9 +25,11 @@ function commitRootImpl(root: FiberRootNode): void {
   if (finishedWork === null) {
     return;
   }
+  const lanes = root.finishedLanes;
   root.finishedWork = null;
   root.finishedLanes = NoLanes;
-  root.pendingLanes = NoLanes;
+  // 只清"本次渲染完成"的 lane（多 lane 并发时其余 lane 保留）；第 7 章单 lane 等价于清空
+  root.pendingLanes = removeLanes(root.pendingLanes, lanes);
 
   // 阶段一 beforeMutation：类组件 getSnapshotBeforeUpdate / passive 卸载（第 9 章补实现）
   commitBeforeMutationEffects(root, finishedWork);
