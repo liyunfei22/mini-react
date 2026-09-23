@@ -5,9 +5,15 @@
 // layout 阶段（refs/layout effects）读到的是新树。
 import { hostConfig } from './HostConfig';
 import type { FiberNode } from './ReactFiber';
-import { MutationMask, Placement, Update } from './ReactFiberFlags';
+import { LayoutMask, MutationMask, PassiveMask, Placement, Update } from './ReactFiberFlags';
 import { NoLanes, removeLanes } from './ReactFiberLane';
 import type { FiberRootNode } from './ReactFiberRoot';
+import {
+  HasEffect as HookHasEffect,
+  Layout as HookLayout,
+  Passive as HookPassive,
+} from './ReactHookEffectTags';
+import { scheduleMicrotask } from './ReactFiberSyncTaskQueue';
 import {
   Fragment,
   FunctionComponent,
@@ -42,17 +48,157 @@ function commitRootImpl(root: FiberRootNode): void {
   // ---- 交换时机：mutation 之后、layout 之前 ----
   root.current = finishedWork;
 
-  // 阶段三 layout：refs 挂载 / layout effects（第 9/12 章补实现）
+  // 阶段三 layout：做 refs 挂载 + layout effects（读到的是新树）
   commitLayoutEffects(root, finishedWork);
+
+  // 阶段四（异步）：passive effects（useEffect）。paint 之后再跑，这里只"记一笔 + 排队"。
+  if ((finishedWork.subtreeFlags & PassiveMask) !== 0) {
+    rootWithPendingPassiveEffects = root;
+    scheduleMicrotask(flushPassiveEffects);
+  }
 }
 
-// ---- 阶段一 / 阶段三：目前仅有结构，body 待后续章节填充 ----
-function commitBeforeMutationEffects(_root: FiberRootNode, _finishedWork: FiberNode): void {
-  // TODO(第9章)：递归跑 getSnapshotBeforeUpdate + 卸载惰性副作用
+// ---- 阶段一 beforeMutation：目前仍为结构（类组件 getSnapshotBeforeUpdate 本系列不做）----
+function commitBeforeMutationEffects(_root: FiberRootNode, _finishedWork: FiberNode): void {}
+
+// ---- 阶段三 layout：同步跑 useLayoutEffect ----
+function commitLayoutEffects(root: FiberRootNode, finishedWork: FiberNode): void {
+  recursivelyTraverseLayoutEffects(root, finishedWork);
+  commitLayoutEffectOnFiber(finishedWork);
 }
 
-function commitLayoutEffects(_root: FiberRootNode, _finishedWork: FiberNode): void {
-  // TODO(第9/12章)：attachRef + commitHookEffectListMount(Layout)
+function recursivelyTraverseLayoutEffects(root: FiberRootNode, parentFiber: FiberNode): void {
+  if ((parentFiber.subtreeFlags & LayoutMask) !== 0) {
+    let child = parentFiber.child;
+    while (child !== null) {
+      commitLayoutEffects(root, child);
+      child = child.sibling;
+    }
+  }
+}
+
+function commitLayoutEffectOnFiber(finishedWork: FiberNode): void {
+  switch (finishedWork.tag) {
+    case FunctionComponent:
+    case Fragment:
+    case IndeterminateComponent:
+      commitHookEffectListMount(HookLayout | HookHasEffect, finishedWork);
+      return;
+    default:
+      return;
+  }
+}
+
+// ---- effect 链表的执行（官方 commitHookEffectListMount / Unmount）----
+function commitHookEffectListMount(flags: number, finishedWork: FiberNode): void {
+  const updateQueue = finishedWork.updateQueue as { lastEffect: Effect | null } | null;
+  const lastEffect = updateQueue !== null ? updateQueue.lastEffect : null;
+  if (lastEffect !== null) {
+    const firstEffect = lastEffect.next!;
+    let effect: Effect = firstEffect;
+    do {
+      if ((effect.tag & flags) === flags) {
+        const create = effect.create;
+        effect.destroy = create(); // 记录 cleanup 供下次/卸载用
+      }
+      effect = effect.next!;
+    } while (effect !== firstEffect);
+  }
+}
+
+function commitHookEffectListUnmount(flags: number, finishedWork: FiberNode): void {
+  const updateQueue = finishedWork.updateQueue as { lastEffect: Effect | null } | null;
+  const lastEffect = updateQueue !== null ? updateQueue.lastEffect : null;
+  if (lastEffect !== null) {
+    const firstEffect = lastEffect.next!;
+    let effect: Effect = firstEffect;
+    do {
+      if ((effect.tag & flags) === flags) {
+        const destroy = effect.destroy;
+        effect.destroy = undefined;
+        if (destroy !== undefined) {
+          destroy(); // 先清理上一次的副作用
+        }
+      }
+      effect = effect.next!;
+    } while (effect !== firstEffect);
+  }
+}
+
+// ---- passive effects（useEffect）：异步 flush ----
+let rootWithPendingPassiveEffects: FiberRootNode | null = null;
+
+export function flushPassiveEffects(): void {
+  const root = rootWithPendingPassiveEffects;
+  if (root === null) {
+    return;
+  }
+  rootWithPendingPassiveEffects = null;
+  const finishedWork = root.current; // commit 之后 root.current 已是新树
+  commitPassiveUnmountEffects(finishedWork);
+  commitPassiveMountEffects(finishedWork);
+}
+
+function commitPassiveUnmountEffects(finishedWork: FiberNode): void {
+  recursivelyTraversePassiveUnmountEffects(finishedWork);
+  commitPassiveUnmountEffectsOnFiber(finishedWork);
+}
+
+function recursivelyTraversePassiveUnmountEffects(parentFiber: FiberNode): void {
+  if ((parentFiber.subtreeFlags & PassiveMask) !== 0) {
+    let child = parentFiber.child;
+    while (child !== null) {
+      commitPassiveUnmountEffects(child);
+      child = child.sibling;
+    }
+  }
+}
+
+function commitPassiveUnmountEffectsOnFiber(finishedWork: FiberNode): void {
+  switch (finishedWork.tag) {
+    case FunctionComponent:
+    case Fragment:
+    case IndeterminateComponent:
+      commitHookEffectListUnmount(HookPassive | HookHasEffect, finishedWork);
+      return;
+    default:
+      return;
+  }
+}
+
+function commitPassiveMountEffects(finishedWork: FiberNode): void {
+  recursivelyTraversePassiveMountEffects(finishedWork);
+  commitPassiveMountEffectsOnFiber(finishedWork);
+}
+
+function recursivelyTraversePassiveMountEffects(parentFiber: FiberNode): void {
+  if ((parentFiber.subtreeFlags & PassiveMask) !== 0) {
+    let child = parentFiber.child;
+    while (child !== null) {
+      commitPassiveMountEffects(child);
+      child = child.sibling;
+    }
+  }
+}
+
+function commitPassiveMountEffectsOnFiber(finishedWork: FiberNode): void {
+  switch (finishedWork.tag) {
+    case FunctionComponent:
+    case Fragment:
+    case IndeterminateComponent:
+      commitHookEffectListMount(HookPassive | HookHasEffect, finishedWork);
+      return;
+    default:
+      return;
+  }
+}
+
+interface Effect {
+  tag: number;
+  create: () => void | (() => void);
+  destroy: void | (() => void);
+  deps: unknown[] | null;
+  next: Effect | null;
 }
 
 // ---- 阶段二：mutation ----
@@ -86,6 +232,10 @@ function commitMutationEffectsOnFiber(finishedWork: FiberNode, root: FiberRootNo
     case Fragment: {
       recursivelyTraverseMutationEffects(root, finishedWork);
       commitReconciliationEffects(finishedWork);
+      if ((flags & Update) !== 0) {
+        // useLayoutEffect 的 cleanup 在 mutation 阶段先跑（官方 commitMutationEffectsOnFiber FunctionComponent 分支）
+        commitHookEffectListUnmount(HookLayout | HookHasEffect, finishedWork);
+      }
       return;
     }
     case HostRoot: {
@@ -231,6 +381,14 @@ function commitDeletionEffects(root: FiberRootNode, fiberToDelete: FiberNode): v
       hostConfig.removeChild(parent, fiberToDelete.stateNode);
     }
     return;
+  }
+  // 函数组件卸载：运行 side-effect 的 cleanup（useLayoutEffect + useEffect）。
+  // 注意：删除路径按"纯 phase 位"判定（不带 HasEffect）——否则 deps 不变的 carried effect
+  // 的 destroy 会被跳过、cleanup 永不触发（第 9 章复核发现的泄漏）。
+  // 简化说明：官方把被动 cleanup 推迟到异步 flush，mini 版先同步于此（时序差异见文章）。
+  if (tag === FunctionComponent || tag === IndeterminateComponent || tag === Fragment) {
+    commitHookEffectListUnmount(HookLayout, fiberToDelete);
+    commitHookEffectListUnmount(HookPassive, fiberToDelete);
   }
   // 组件/wrapper 层节点：自身无 DOM，递归删除其 host 子孙
   let child = fiberToDelete.child;

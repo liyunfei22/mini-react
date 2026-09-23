@@ -7,8 +7,19 @@
 // （内部类型刻意用 unknown，避免泛型协变把 HookQueue 互相排斥；边界处按需断言。）
 import { ReactSharedInternals, objectIs } from '@mini-react/shared';
 import type { Dispatcher, Dispatch, Reducer, SetStateAction } from '@mini-react/shared';
+import {
+  LayoutStatic,
+  Passive as PassiveFlag,
+  PassiveStatic,
+  Update as UpdateFlag,
+} from './ReactFiberFlags';
 import type { FiberNode } from './ReactFiber';
 import type { FiberRootNode } from './ReactFiberRoot';
+import {
+  HasEffect as HookHasEffect,
+  Layout as HookLayout,
+  Passive as HookPassive,
+} from './ReactHookEffectTags';
 import { requestUpdateLane, scheduleUpdateOnFiber } from './ReactFiberWorkLoop';
 
 // ---- 类型（非泛型，边界断言）----
@@ -30,6 +41,18 @@ interface Hook {
   baseQueue: Update | null;
   queue: HookQueue | null;
   next: Hook | null;
+}
+
+// ---- effect 相关类型（第 9 章）----
+interface Effect {
+  tag: number; // HasEffect | Layout/Passive
+  create: () => void | (() => void);
+  destroy: void | (() => void);
+  deps: unknown[] | null;
+  next: Effect | null;
+}
+interface FunctionComponentUpdateQueue {
+  lastEffect: Effect | null;
 }
 
 // ---- 渲染上下文（模块级"正在渲染哪个 fiber / 走到哪个 hook"）----
@@ -292,11 +315,104 @@ function notImplemented(name: string, chapter: string): never {
   throw new Error(`[react-reconciler] ${name} 尚未实现（第 ${chapter} 章）。`);
 }
 
+// ---- effect（第 9 章）----
+
+/** 把新 effect 挂到当前 fiber.updateQueue 的环形链表末尾（官方 pushEffect） */
+function pushEffect(
+  tag: number,
+  create: () => void | (() => void),
+  destroy: void | (() => void),
+  deps: unknown[] | null,
+): Effect {
+  const effect: Effect = { tag, create, destroy, deps, next: null };
+  let componentUpdateQueue = currentlyRenderingFiber!
+    .updateQueue as FunctionComponentUpdateQueue | null;
+  if (componentUpdateQueue === null) {
+    componentUpdateQueue = { lastEffect: null };
+    currentlyRenderingFiber!.updateQueue = componentUpdateQueue;
+    componentUpdateQueue.lastEffect = effect.next = effect;
+  } else {
+    const lastEffect = componentUpdateQueue.lastEffect;
+    if (lastEffect === null) {
+      componentUpdateQueue.lastEffect = effect.next = effect;
+    } else {
+      const firstEffect = lastEffect.next!;
+      lastEffect.next = effect;
+      effect.next = firstEffect;
+      componentUpdateQueue.lastEffect = effect;
+    }
+  }
+  return effect;
+}
+
+/** deps 是否逐个 Object.is 相等（官方 areHookInputsEqual） */
+function areHookInputsEqual(nextDeps: unknown[], prevDeps: unknown[] | null): boolean {
+  if (prevDeps === null) {
+    return false;
+  }
+  for (let i = 0; i < prevDeps.length && i < nextDeps.length; i++) {
+    if (objectIs(nextDeps[i], prevDeps[i])) {
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+
+function mountEffectImpl(
+  fiberFlags: number,
+  hookFlags: number,
+  create: Effect['create'],
+  deps: unknown[] | null,
+): void {
+  const hook = mountWorkInProgressHook();
+  const nextDeps = deps === undefined ? null : deps;
+  currentlyRenderingFiber!.flags |= fiberFlags;
+  hook.memoizedState = pushEffect(HookHasEffect | hookFlags, create, undefined, nextDeps);
+}
+
+function updateEffectImpl(
+  fiberFlags: number,
+  hookFlags: number,
+  create: Effect['create'],
+  deps: unknown[] | null,
+): void {
+  const hook = updateWorkInProgressHook();
+  const nextDeps = deps === undefined ? null : deps;
+  let destroy: void | (() => void) = undefined;
+  if (currentHook !== null) {
+    const prevEffect = currentHook.memoizedState as Effect;
+    destroy = prevEffect.destroy;
+    if (nextDeps !== null) {
+      if (areHookInputsEqual(nextDeps, prevEffect.deps)) {
+        // deps 没变：带上旧 destroy（等真正变化/卸载再清理），不打 HasEffect → 本轮不触发
+        hook.memoizedState = pushEffect(hookFlags, create, destroy, nextDeps);
+        return;
+      }
+    }
+  }
+  currentlyRenderingFiber!.flags |= fiberFlags;
+  hook.memoizedState = pushEffect(HookHasEffect | hookFlags, create, destroy, nextDeps);
+}
+
+function mountEffect(create: Effect['create'], deps: unknown[] | null): void {
+  return mountEffectImpl(PassiveFlag | PassiveStatic, HookPassive, create, deps);
+}
+function updateEffect(create: Effect['create'], deps: unknown[] | null): void {
+  return updateEffectImpl(PassiveFlag, HookPassive, create, deps);
+}
+function mountLayoutEffect(create: Effect['create'], deps: unknown[] | null): void {
+  return mountEffectImpl(UpdateFlag | LayoutStatic, HookLayout, create, deps);
+}
+function updateLayoutEffect(create: Effect['create'], deps: unknown[] | null): void {
+  return updateEffectImpl(UpdateFlag, HookLayout, create, deps);
+}
+
 const HooksDispatcherOnMount: Dispatcher = {
   useState: mountState,
   useReducer: mountReducer,
-  useEffect: () => notImplemented('useEffect', '9'),
-  useLayoutEffect: () => notImplemented('useLayoutEffect', '9'),
+  useEffect: mountEffect,
+  useLayoutEffect: mountLayoutEffect,
   useRef: () => notImplemented('useRef', '10'),
   useMemo: () => notImplemented('useMemo', '10'),
   useCallback: () => notImplemented('useCallback', '10'),
@@ -306,8 +422,8 @@ const HooksDispatcherOnMount: Dispatcher = {
 const HooksDispatcherOnUpdate: Dispatcher = {
   useState: updateState,
   useReducer: updateReducer,
-  useEffect: () => notImplemented('useEffect', '9'),
-  useLayoutEffect: () => notImplemented('useLayoutEffect', '9'),
+  useEffect: updateEffect,
+  useLayoutEffect: updateLayoutEffect,
   useRef: () => notImplemented('useRef', '10'),
   useMemo: () => notImplemented('useMemo', '10'),
   useCallback: () => notImplemented('useCallback', '10'),

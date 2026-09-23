@@ -65,3 +65,5 @@ export function createContainer(containerInfo: unknown): FiberRootNode {
 
 // render/commit 调度的公开入口（第 4 章）
 export { flushSyncCallbacks, scheduleUpdateOnFiber, updateContainer };
+// passive effects 的异步 flush（第 9 章；测试里用于确定性 drain）
+export { flushPassiveEffects } from './ReactFiberCommitWork';

@@ -15,7 +15,7 @@
 | 06  | useState/useReducer：hook 链表与更新队列             | ✅ 已完成   | —        |
 | 07  | 更新调度：scheduleUpdateOnFiber 先走同步             | ✅ 已完成   | —        |
 | 08  | Reconciliation / Diff：key 心智模型                  | ✅ 已完成   | —        |
-| 09  | useEffect/useLayoutEffect：副作用链表                | 🕐 未开始   | —        |
+| 09  | useEffect/useLayoutEffect：副作用链表                | ✅ 已完成   | —        |
 | 10  | useMemo/useCallback/useRef 一种套路                  | 🕐 未开始   | —        |
 | 11  | Context：valueCursor 与依赖收集                      | 🕐 未开始   | —        |
 | 12  | ref 与 forwardRef 的转发链                           | 🕐 未开始   | —        |
