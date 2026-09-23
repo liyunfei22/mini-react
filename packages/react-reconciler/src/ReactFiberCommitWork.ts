@@ -9,8 +9,10 @@ import { MutationMask, Placement, Update } from './ReactFiberFlags';
 import { NoLanes, removeLanes } from './ReactFiberLane';
 import type { FiberRootNode } from './ReactFiberRoot';
 import {
+  Fragment,
   FunctionComponent,
   HostComponent,
+  HostPortal,
   HostRoot,
   HostText,
   IndeterminateComponent,
@@ -80,7 +82,8 @@ function commitMutationEffectsOnFiber(finishedWork: FiberNode, root: FiberRootNo
   const flags = finishedWork.flags;
   switch (finishedWork.tag) {
     case FunctionComponent:
-    case IndeterminateComponent: {
+    case IndeterminateComponent:
+    case Fragment: {
       recursivelyTraverseMutationEffects(root, finishedWork);
       commitReconciliationEffects(finishedWork);
       return;
@@ -168,11 +171,52 @@ function getHostParent(fiber: FiberNode): { parent: unknown; isContainer: boolea
   return { parent, isContainer };
 }
 
+/**
+ * 找到"已提交的 host 兄弟节点"，作为插入位置（官方 getHostSibling）。
+ * 从当前 fiber 沿 sibling 向后找——遇到 host 且没打 Placement 的就是"已经在 DOM 上的邻居"，
+ * 新节点应插到它之前；否则（全是要插入的）返回 null，落回 append。
+ */
+function getHostSibling(fiber: FiberNode): unknown {
+  let node: FiberNode = fiber;
+  siblings: while (true) {
+    while (node.sibling === null) {
+      if (node.return === null) {
+        return null;
+      }
+      if (isHostParent(node.return)) {
+        return null; // 上溯到 host 边界仍无兄弟
+      }
+      node = node.return;
+    }
+    node.sibling.return = node.return; // 修正 return 指针（官方同款防御）
+    node = node.sibling;
+    // 跳到第一个 host 节点
+    while (node.tag !== HostComponent && node.tag !== HostText) {
+      if ((node.flags & Placement) !== 0) {
+        continue siblings; // 这个兄弟也是待插入的，找下一个
+      }
+      if (node.child === null) {
+        continue siblings;
+      }
+      node.child.return = node;
+      node = node.child;
+    }
+    if ((node.flags & Placement) === 0) {
+      return node.stateNode; // 已提交的 host 兄弟
+    }
+  }
+}
+
+function isHostParent(fiber: FiberNode): boolean {
+  const tag = fiber.tag;
+  return tag === HostComponent || tag === HostRoot || tag === HostPortal;
+}
+
 function commitPlacement(finishedWork: FiberNode): void {
   const { parent, isContainer } = getHostParent(finishedWork);
-  // before 恒 null（永远挂尾）；官方这里用 getHostSibling 算出"插到哪个兄弟前"——
-  // 那种重排/插中间的语义待第 8 章数组 diff（move）落地时一起补齐。
-  insertOrAppendPlacementNode(finishedWork, null, parent, isContainer);
+  // 移动/插中间时，before 指向"已提交的邻居"，insertBefore 据此落位；否则 append。
+  const before = getHostSibling(finishedWork);
+  insertOrAppendPlacementNode(finishedWork, before, parent, isContainer);
 }
 
 /** 删除一个旧 fiber 对应的真实 DOM（第 9 章补递归卸载副作用/清理 ref） */

@@ -6,6 +6,7 @@ import type { FiberNode } from './ReactFiber';
 import { renderWithHooks } from './ReactFiberHooks';
 import type { Lanes } from './ReactFiberLane';
 import {
+  Fragment,
   FunctionComponent,
   HostComponent,
   HostRoot,
@@ -102,6 +103,12 @@ export function beginWork(
     }
     case FunctionComponent:
       return updateFunctionComponent(current, workInProgress, renderLanes);
+    case Fragment: {
+      // Fragment 只是"分组"：直接把自己的 children 当作子节点 reconcile
+      const nextProps = (workInProgress.pendingProps ?? {}) as { children?: unknown };
+      reconcileChildren(current, workInProgress, nextProps.children ?? null, renderLanes);
+      return workInProgress.child;
+    }
     case HostRoot:
       return updateHostRoot(current, workInProgress, renderLanes);
     case HostComponent:

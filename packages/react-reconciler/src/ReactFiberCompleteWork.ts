@@ -6,6 +6,7 @@ import type { FiberNode } from './ReactFiber';
 import { Update } from './ReactFiberFlags';
 import type { Lanes } from './ReactFiberLane';
 import {
+  Fragment,
   FunctionComponent,
   HostComponent,
   HostRoot,
@@ -97,6 +98,7 @@ export function completeWork(
       return null;
     }
     case HostRoot:
+    case Fragment:
     case IndeterminateComponent:
     case FunctionComponent:
       return null;

@@ -4,13 +4,19 @@
 // Fiber 是什么？一个可遍历的、带调度信息的节点树：
 // - 用 child / sibling / return 构成"链表树"，遍历不依赖递归（可随时中断）；
 // - 用 alternate 与 current 树成对，构成"双缓冲"：一棵是屏幕上已提交的，一棵是正在改的。
-import { REACT_ELEMENT_TYPE } from '@mini-react/shared';
+import { REACT_ELEMENT_TYPE, REACT_FRAGMENT_TYPE } from '@mini-react/shared';
 import { NoFlags, StaticMask } from './ReactFiberFlags';
 import type { Flags } from './ReactFiberFlags';
 import { NoLanes } from './ReactFiberLane';
 import type { Lanes } from './ReactFiberLane';
 import type { WorkTag } from './ReactWorkTags';
-import { HostComponent, HostRoot, HostText, IndeterminateComponent } from './ReactWorkTags';
+import {
+  Fragment,
+  HostComponent,
+  HostRoot,
+  HostText,
+  IndeterminateComponent,
+} from './ReactWorkTags';
 
 export type FiberMode = number;
 
@@ -110,6 +116,8 @@ export function createFiberFromTypeAndProps(
   let fiberTag: WorkTag = IndeterminateComponent;
   if (typeof type === 'string') {
     fiberTag = HostComponent; // 'div' / 'span' ...
+  } else if (type === REACT_FRAGMENT_TYPE) {
+    fiberTag = Fragment; // <>...</> 的分组节点
   } else if (typeof type === 'function') {
     fiberTag = IndeterminateComponent;
   }

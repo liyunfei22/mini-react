@@ -2,9 +2,9 @@
 // ChildReconciler 是"根据新 element 生成/复用子 fiber"的核心。关键机制：
 //   shouldTrackSideEffects —— 内部转的是两个实例：
 //     reconcileChildFibers(shouldTrackSideEffects=true)：更新路径，placeChild 要给新增/移动节点打 Placement；
-//     mountChildFibers(shouldTrackSideEffects=false)：挂载路径，整棵子树都是新的，只要根节点打一次 Placement，
-//       commit 时用 appendAllChildren 一次性把整棵子树挂进容器。
-// 第 4 章实现挂载（mount）路径含正确打标；复用/删除（diff）第 8 章补齐。
+//     mountChildFibers(shouldTrackSideEffects=false)：挂载路径，整棵子树都是新的，只让根节点打 Placement。
+// 数组 diff 是本章主体：key 相同 + type 相同 → 复用（useFiber）；key/type 变 → 删旧建新；
+// 位置落后（oldIndex < lastPlacedIndex）→ 打 Placement 移动（commit 阶段用 insertBefore 落到正确位置）。
 import { REACT_ELEMENT_TYPE } from '@mini-react/shared';
 import { createFiberFromElement, createFiberFromText, createWorkInProgress } from './ReactFiber';
 import type { FiberNode } from './ReactFiber';
@@ -21,31 +21,26 @@ type FiberElement = {
 
 export function ChildReconciler(shouldTrackSideEffects: boolean) {
   /**
-   * 给新 fiber 记位置，并按需打 Placement。
-   * 返回值是"已放置的最后位置" lastPlacedIndex —— 调用方必须接住它（JS 参数按值传递，内部重赋值传不回）。
-   *   - 不动（keep）：复用且位置没落后 → 返回旧 index；
+   * 给新 fiber 记位置，并按需打 Placement。返回值 lastPlacedIndex 必须被调用方接住。
+   *   - 原地复用（keep）：复用且旧位置没落后 → 返回旧 index；
    *   - 移动（move）：复用但旧位置 < lastPlacedIndex → 打 Placement，lastPlacedIndex 不变；
    *   - 插入（insert）：全新节点 → 打 Placement，lastPlacedIndex 不变。
    */
   function placeChild(newFiber: FiberNode, lastPlacedIndex: number, newIndex: number): number {
     newFiber.index = newIndex;
     if (!shouldTrackSideEffects) {
-      // 挂载路径：不打标记（根节点统一负责）
       return lastPlacedIndex;
     }
     const current = newFiber.alternate;
     if (current !== null) {
       const oldIndex = current.index;
       if (oldIndex < lastPlacedIndex) {
-        // 旧位置落后于已放置位置 → 需要移动
-        newFiber.flags |= Placement;
+        newFiber.flags |= Placement; // move
         return lastPlacedIndex;
       }
-      // 原地复用
-      return oldIndex;
+      return oldIndex; // keep
     }
-    // 全新节点 → 插入
-    newFiber.flags |= Placement;
+    newFiber.flags |= Placement; // insert
     return lastPlacedIndex;
   }
 
@@ -53,14 +48,12 @@ export function ChildReconciler(shouldTrackSideEffects: boolean) {
     returnFiber: FiberNode,
     newChild: unknown,
     mode: FiberNode['mode'],
-    _lanes: Lanes,
   ): FiberNode | null {
     if ((typeof newChild === 'string' && newChild !== '') || typeof newChild === 'number') {
       const created = createFiberFromText(String(newChild), mode);
       created.return = returnFiber;
       return created;
     }
-
     if (typeof newChild === 'object' && newChild !== null) {
       const element = newChild as FiberElement;
       if (element.$$typeof === REACT_ELEMENT_TYPE) {
@@ -69,12 +62,10 @@ export function ChildReconciler(shouldTrackSideEffects: boolean) {
         return created;
       }
     }
-
-    // null / undefined / false / '' / 其它：不产生节点
     return null;
   }
 
-  /** 复用旧 fiber（官方 useFiber：用 createWorkInProgress 造出它的 wip 版本，sibling 索引归零） */
+  /** 复用旧 fiber（官方 useFiber） */
   function useFiber(fiber: FiberNode, pendingProps: unknown): FiberNode {
     const clone = createWorkInProgress(fiber, pendingProps);
     clone.index = 0;
@@ -82,8 +73,10 @@ export function ChildReconciler(shouldTrackSideEffects: boolean) {
     return clone;
   }
 
-  /** 把待删除的 current 子 fiber 记到父 fiber 的 deletions 列表（官方 deleteChild） */
   function deleteChild(returnFiber: FiberNode, childToDelete: FiberNode): void {
+    if (!shouldTrackSideEffects) {
+      return; // 挂载路径（mountChildFibers）下删除是空操作（官方同款守卫）
+    }
     const deletions = returnFiber.deletions;
     if (deletions === null) {
       returnFiber.deletions = [childToDelete];
@@ -93,11 +86,13 @@ export function ChildReconciler(shouldTrackSideEffects: boolean) {
     }
   }
 
-  /** 删除从某个起点开始的所有 current 兄弟 fiber（官方 deleteRemainingChildren） */
   function deleteRemainingChildren(
     returnFiber: FiberNode,
     currentFirstChild: FiberNode | null,
   ): null {
+    if (!shouldTrackSideEffects) {
+      return null; // 挂载路径下无旧子可删（官方同款守卫）
+    }
     let childToDelete = currentFirstChild;
     while (childToDelete !== null) {
       deleteChild(returnFiber, childToDelete);
@@ -106,34 +101,28 @@ export function ChildReconciler(shouldTrackSideEffects: boolean) {
     return null;
   }
 
+  // ---- 单节点复用/删除（第 5 章已有）----
   function reconcileSingleElement(
     returnFiber: FiberNode,
     currentFirstChild: FiberNode | null,
     element: FiberElement,
-    _lanes: Lanes,
   ): FiberNode {
     const key = element.key;
     let child = currentFirstChild;
     while (child !== null) {
-      // ① key 相同
       if (child.key === key) {
-        const elementType = element.type;
-        if (child.elementType === elementType) {
-          // 类型也相同 → 复用：删掉其余兄弟，用旧 fiber 造 wip
+        if (child.elementType === element.type) {
           deleteRemainingChildren(returnFiber, child.sibling);
           const existing = useFiber(child, element.props);
           existing.return = returnFiber;
           return existing;
         }
-        // key 相同但类型不同（如 div → span）：旧节点及其兄弟全部作废，重建
         deleteRemainingChildren(returnFiber, child);
         break;
       }
-      // ② key 不同：这个旧节点作废，继续找下一个
       deleteChild(returnFiber, child);
       child = child.sibling;
     }
-    // ③ 找不到可复用的：全新创建
     const created = createFiberFromElement(element, returnFiber.mode);
     created.return = returnFiber;
     return created;
@@ -143,9 +132,7 @@ export function ChildReconciler(shouldTrackSideEffects: boolean) {
     returnFiber: FiberNode,
     currentFirstChild: FiberNode | null,
     textContent: string,
-    _lanes: Lanes,
   ): FiberNode {
-    // 官方语义：已有文本 fiber（且仍是 HostText）就复用，否则删旧建新
     if (currentFirstChild !== null && currentFirstChild.tag === HostText) {
       deleteRemainingChildren(returnFiber, currentFirstChild.sibling);
       const existing = useFiber(currentFirstChild, textContent);
@@ -158,40 +145,199 @@ export function ChildReconciler(shouldTrackSideEffects: boolean) {
     return created;
   }
 
+  // ---- 数组 diff（第 8 章主体）----
+
+  /** 按位置复用：slot 里 old 和 new 都对得上（key/type）就复用，否则返回 null */
+  function updateSlot(
+    returnFiber: FiberNode,
+    oldFiber: FiberNode | null,
+    newChild: unknown,
+  ): FiberNode | null {
+    const key = oldFiber !== null ? oldFiber.key : null;
+    if (typeof newChild === 'object' && newChild !== null) {
+      const element = newChild as FiberElement;
+      if (element.$$typeof === REACT_ELEMENT_TYPE) {
+        if (element.key === key) {
+          return updateElement(returnFiber, oldFiber, element);
+        }
+        return null;
+      }
+    }
+    if ((typeof newChild === 'string' && newChild !== '') || typeof newChild === 'number') {
+      if (key === null) {
+        return updateTextNode(returnFiber, oldFiber, String(newChild));
+      }
+      return null;
+    }
+    return null;
+  }
+
+  function updateElement(
+    returnFiber: FiberNode,
+    current: FiberNode | null,
+    element: FiberElement,
+  ): FiberNode {
+    if (current !== null && current.elementType === element.type) {
+      const existing = useFiber(current, element.props);
+      existing.return = returnFiber;
+      return existing;
+    }
+    const created = createFiberFromElement(element, returnFiber.mode);
+    created.return = returnFiber;
+    return created;
+  }
+
+  function updateTextNode(
+    returnFiber: FiberNode,
+    current: FiberNode | null,
+    textContent: string,
+  ): FiberNode {
+    if (current !== null && current.tag === HostText) {
+      const existing = useFiber(current, textContent);
+      existing.return = returnFiber;
+      return existing;
+    }
+    const created = createFiberFromText(textContent, returnFiber.mode);
+    created.return = returnFiber;
+    return created;
+  }
+
+  /** 把剩下的 old fiber 建成 key/index → fiber 的映射（官方 mapRemainingChildren） */
+  function mapRemainingChildren(
+    returnFiber: FiberNode,
+    currentFirstChild: FiberNode,
+  ): Map<unknown, FiberNode> {
+    const existingChildren = new Map<unknown, FiberNode>();
+    let existingChild: FiberNode | null = currentFirstChild;
+    while (existingChild !== null) {
+      if (existingChild.key !== null) {
+        existingChildren.set(existingChild.key, existingChild);
+      } else {
+        existingChildren.set(existingChild.index, existingChild);
+      }
+      existingChild = existingChild.sibling;
+    }
+    return existingChildren;
+  }
+
+  function updateFromMap(
+    existingChildren: Map<unknown, FiberNode>,
+    returnFiber: FiberNode,
+    newIdx: number,
+    newChild: unknown,
+  ): FiberNode | null {
+    if ((typeof newChild === 'string' && newChild !== '') || typeof newChild === 'number') {
+      const matchedFiber = existingChildren.get(newIdx) ?? null;
+      return updateTextNode(returnFiber, matchedFiber, String(newChild));
+    }
+    if (typeof newChild === 'object' && newChild !== null) {
+      const element = newChild as FiberElement;
+      if (element.$$typeof === REACT_ELEMENT_TYPE) {
+        const matchedFiber =
+          existingChildren.get(element.key === null ? newIdx : element.key) ?? null;
+        return updateElement(returnFiber, matchedFiber, element);
+      }
+    }
+    return null;
+  }
+
   function reconcileChildrenArray(
     returnFiber: FiberNode,
     currentFirstChild: FiberNode | null,
     newChildren: unknown[],
-    lanes: Lanes,
   ): FiberNode | null {
-    // 更新路径下，第 5 章还没做 key 复用/移动（第 8 章），先整段删除旧子，再造新的——
-    // 否则旧 DOM 会残留、与新节点叠加重复。挂载路径（shouldTrackSideEffects=false）无需删。
-    if (shouldTrackSideEffects) {
-      deleteRemainingChildren(returnFiber, currentFirstChild);
-    }
-
     let resultingFirstChild: FiberNode | null = null;
     let previousNewFiber: FiberNode | null = null;
-    let lastPlacedIndex = 0;
 
-    for (let newIndex = 0; newIndex < newChildren.length; newIndex++) {
-      const newFiber = createChild(returnFiber, newChildren[newIndex], returnFiber.mode, lanes);
-      if (newFiber === null) {
-        continue;
+    let oldFiber: FiberNode | null = currentFirstChild;
+    let lastPlacedIndex = 0;
+    let newIdx = 0;
+    let nextOldFiber: FiberNode | null;
+
+    // 第一趟：按位置 matching（O(n) 处理"同位置复用"）
+    for (; oldFiber !== null && newIdx < newChildren.length; newIdx++) {
+      if (oldFiber.index > newIdx) {
+        // 有 key 且乱序：跳过这个 old，交给第二趟 map 阶段
+        nextOldFiber = oldFiber;
+        oldFiber = null;
+      } else {
+        nextOldFiber = oldFiber.sibling;
       }
-      // 接住返回值：lastPlacedIndex 必须在兄弟间正确传递（第 8 章 move 判定依赖它）
-      lastPlacedIndex = placeChild(newFiber, lastPlacedIndex, newIndex);
+      const newFiber = updateSlot(returnFiber, oldFiber, newChildren[newIdx]);
+      if (newFiber === null) {
+        // 关键：第一个"同位置匹配失败"就 break（而不是 continue）——后续交给 map 阶段
+        // 按 key 匹配；因为 keyed 列表一旦在某个位置对不上，后面的位置匹配就都不可信了。
+        if (oldFiber === null) {
+          oldFiber = nextOldFiber;
+        }
+        break;
+      }
+      if (shouldTrackSideEffects) {
+        if (oldFiber !== null && newFiber.alternate === null) {
+          // 位置上那个 old 没被复用（key/type 不符）→ 删除
+          deleteChild(returnFiber, oldFiber);
+        }
+      }
+      lastPlacedIndex = placeChild(newFiber, lastPlacedIndex, newIdx);
       if (previousNewFiber === null) {
         resultingFirstChild = newFiber;
       } else {
         previousNewFiber.sibling = newFiber;
       }
       previousNewFiber = newFiber;
+      oldFiber = nextOldFiber;
+    }
+
+    // new 处理完了：删掉剩余 old
+    if (newIdx === newChildren.length) {
+      deleteRemainingChildren(returnFiber, oldFiber);
+      return resultingFirstChild;
+    }
+
+    // old 处理完了：剩余 new 全是新增
+    if (oldFiber === null) {
+      for (; newIdx < newChildren.length; newIdx++) {
+        const newFiber = createChild(returnFiber, newChildren[newIdx], returnFiber.mode);
+        if (newFiber === null) continue;
+        lastPlacedIndex = placeChild(newFiber, lastPlacedIndex, newIdx);
+        if (previousNewFiber === null) {
+          resultingFirstChild = newFiber;
+        } else {
+          previousNewFiber.sibling = newFiber;
+        }
+        previousNewFiber = newFiber;
+      }
+      return resultingFirstChild;
+    }
+
+    // 有 key 的乱序/移动：第二趟用 map 匹配
+    const existingChildren = mapRemainingChildren(returnFiber, oldFiber);
+    for (; newIdx < newChildren.length; newIdx++) {
+      const newFiber = updateFromMap(existingChildren, returnFiber, newIdx, newChildren[newIdx]);
+      if (newFiber !== null) {
+        if (shouldTrackSideEffects) {
+          if (newFiber.alternate !== null) {
+            // 复用成功：从 map 里摘掉（防止同 key 被二次复用/漏删）
+            existingChildren.delete(newFiber.key === null ? newIdx : newFiber.key);
+          }
+        }
+        lastPlacedIndex = placeChild(newFiber, lastPlacedIndex, newIdx);
+        if (previousNewFiber === null) {
+          resultingFirstChild = newFiber;
+        } else {
+          previousNewFiber.sibling = newFiber;
+        }
+        previousNewFiber = newFiber;
+      }
+    }
+
+    // map 里剩下的 = 本轮没被匹配上的旧节点 → 全部删除
+    if (shouldTrackSideEffects) {
+      existingChildren.forEach((child) => deleteChild(returnFiber, child));
     }
     return resultingFirstChild;
   }
 
-  /** 给"单个新子节点"打 Placement（更新路径下它是新增的） */
   function placeSingleChild(newFiber: FiberNode): FiberNode {
     if (shouldTrackSideEffects && newFiber.alternate === null) {
       newFiber.flags |= Placement;
@@ -203,36 +349,31 @@ export function ChildReconciler(shouldTrackSideEffects: boolean) {
     returnFiber: FiberNode,
     currentFirstChild: FiberNode | null,
     newChild: unknown,
-    lanes: Lanes,
+    _lanes: Lanes,
   ): FiberNode | null {
     if (typeof newChild === 'object' && newChild !== null) {
       const element = newChild as FiberElement;
       if (element.$$typeof === REACT_ELEMENT_TYPE) {
-        return placeSingleChild(
-          reconcileSingleElement(returnFiber, currentFirstChild, element, lanes),
-        );
+        return placeSingleChild(reconcileSingleElement(returnFiber, currentFirstChild, element));
       }
     }
 
     if (Array.isArray(newChild)) {
-      return reconcileChildrenArray(returnFiber, currentFirstChild, newChild, lanes);
+      return reconcileChildrenArray(returnFiber, currentFirstChild, newChild);
     }
 
     if ((typeof newChild === 'string' && newChild !== '') || typeof newChild === 'number') {
-      // 顶层文本/数字根也要打 Placement（官方此分支同样用 placeSingleChild 包裹）
       return placeSingleChild(
-        reconcileSingleTextNode(returnFiber, currentFirstChild, String(newChild), lanes),
+        reconcileSingleTextNode(returnFiber, currentFirstChild, String(newChild)),
       );
     }
 
-    // null / undefined / false / ''：视为"没有子节点" → 删除所有既有子节点
+    // null / undefined / false / ''：视为无子节点
     return deleteRemainingChildren(returnFiber, currentFirstChild);
   }
 
   return reconcileChildFibers;
 }
 
-/** 更新路径：追踪副作用（给新增/移动节点打 Placement） */
 export const reconcileChildFibers = ChildReconciler(true);
-/** 挂载路径：不追踪副作用（省去打标开销，commit 一次性挂整棵子树） */
 export const mountChildFibers = ChildReconciler(false);
