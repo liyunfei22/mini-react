@@ -10,6 +10,7 @@ import {
 } from '@mini-react/react-reconciler';
 import type { FiberRootNode } from '@mini-react/react-reconciler';
 import { ReactDOMHostConfig } from './ReactDOMHostConfig';
+import { attachRootListeners } from './events/DOMEventSystem';
 
 initializeHostConfig(ReactDOMHostConfig);
 
@@ -24,6 +25,8 @@ export class ReactDOMRoot {
     this._container = container;
     // 官方这一步发生在 createRoot 里：建 FiberRoot，与容器绑定
     this._internalRoot = createContainer(container);
+    // 根委托：在容器上注册一次事件监听（合成事件系统，第 13 章）
+    attachRootListeners(container);
   }
 
   /**

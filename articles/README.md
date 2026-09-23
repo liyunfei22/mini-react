@@ -19,7 +19,7 @@
 | 10  | useMemo/useCallback/useRef 一种套路                  | ✅ 已完成   | —        |
 | 11  | Context：valueCursor 与依赖收集                      | ✅ 已完成   | —        |
 | 12  | ref 与 forwardRef 的转发链                           | ✅ 已完成   | —        |
-| 13  | 合成事件系统：根委托与事件→Lane                      | 🕐 未开始   | —        |
+| 13  | 合成事件系统：根委托与事件→Lane                      | ✅ 已完成   | —        |
 | 14  | Scheduler：MessageChannel 时间切片                   | 🕐 未开始   | —        |
 | 15  | Lane 模型：优先级即 31 位掩码                        | 🕐 未开始   | —        |
 | 16  | 并发升级：可中断渲染 / startTransition               | 🕐 未开始   | —        |

@@ -2,13 +2,7 @@
 // reconciler 只认这 14 个方法（见 packages/react-reconciler/src/HostConfig.ts），
 // 本文件把"抽象操作"落成真实 DOM API，这是 renderer 与核心引擎的分界。
 import type { HostConfig, Props } from '@mini-react/react-reconciler';
-
-/** onXxx → DOM 事件名（只修 multi-word 与缩写不一致的；第 13 章合成事件系统会整体替换这层） */
-function eventNameFromProp(propKey: string): string {
-  const name = propKey.slice(2).toLowerCase();
-  if (name === 'doubleclick') return 'dblclick';
-  return name;
-}
+import { trackNodeProps } from './events/DOMEventSystem';
 
 /** 无需加 px 单位的 CSS 属性（数值型 style 值要对非 unitless 补 'px'） */
 const unitlessStyleProps = new Set([
@@ -48,9 +42,9 @@ function setPropsToNode(node: HTMLElement, props: Props): void {
       node.className = String(value);
     } else if (key === 'style' && value && typeof value === 'object') {
       applyStyle(node, value as Record<string, string | number>);
-    } else if (key.startsWith('on') && typeof value === 'function') {
-      // 第 13 章合成事件系统里换成根委托；第 4 章先直接 addEventListener
-      node.addEventListener(eventNameFromProp(key), value as EventListener);
+    } else if (key.startsWith('on')) {
+      // 事件走根委托（第 13 章合成事件系统），不在此绑定；props 已由 trackNodeProps 登记
+      continue;
     } else if (typeof value === 'boolean') {
       // 布尔属性：true 设空串，false 移除（checked / disabled 等）
       if (value) node.setAttribute(key, '');
@@ -73,7 +67,6 @@ function diffProperties(oldProps: Props, newProps: Props): unknown[] | null {
   const keys = new Set([...Object.keys(oldProps), ...Object.keys(newProps)]);
   keys.delete('children');
   for (const key of keys) {
-    if (key.startsWith('on')) continue;
     const oldValue = oldProps[key];
     const newValue = newProps[key];
     if (oldValue === newValue) continue;
@@ -93,6 +86,7 @@ export const ReactDOMHostConfig: HostConfig = {
     const instance = document.createElement(type);
     if (props) {
       setPropsToNode(instance, props);
+      trackNodeProps(instance, props); // 登记，供事件委托派发查 onXxx
     }
     return instance;
   },
@@ -120,12 +114,15 @@ export const ReactDOMHostConfig: HostConfig = {
   prepareUpdate(_instance, _type, oldProps, newProps) {
     return diffProperties(oldProps, newProps);
   },
-  commitUpdate(instance, updatePayload, _type, _oldProps, _newProps) {
+  commitUpdate(instance, updatePayload, _type, _oldProps, newProps) {
     const node = instance as HTMLElement;
     const payload = updatePayload as unknown[];
     for (let i = 0; i < payload.length; i += 2) {
       const key = payload[i] as string;
       const value = payload[i + 1];
+      if (key.startsWith('on')) {
+        continue; // 事件走委托，不直接落 DOM；下方 trackNodeProps 用 full newProps 更新
+      }
       if (key === 'style') {
         if (value && typeof value === 'object') {
           applyStyle(node, value as Record<string, string | number>);
@@ -142,6 +139,7 @@ export const ReactDOMHostConfig: HostConfig = {
         node.setAttribute(key, String(value));
       }
     }
+    trackNodeProps(node, newProps); // 更新节点的 handler 登记
   },
   commitTextUpdate(textInstance, _oldText, newText) {
     (textInstance as Text).nodeValue = newText;
