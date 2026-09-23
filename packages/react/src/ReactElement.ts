@@ -4,7 +4,13 @@
 // 1. ReactElement 不是"虚拟 DOM"，是一个纯描述对象，靠 $$typeof = Symbol.for('react.element') 标识；
 // 2. key / ref 是"元数据"，从 config 里剥离，绝不进 props；
 // 3. children "单个不包数组、多个成数组" —— 这是 React 稳定契约，渲染时才好处理。
-import { hasOwn, REACT_ELEMENT_TYPE, REACT_FRAGMENT_TYPE } from '@mini-react/shared';
+import {
+  hasOwn,
+  REACT_CONTEXT_TYPE,
+  REACT_ELEMENT_TYPE,
+  REACT_FRAGMENT_TYPE,
+  REACT_PROVIDER_TYPE,
+} from '@mini-react/shared';
 import { ReactCurrentOwner } from './ReactCurrentOwner';
 
 // ---- 类型标识：来自 shared（react 生产元素、reconciler 消费元素，共用同一个 Symbol.for 身份）----
@@ -63,6 +69,15 @@ function hasValidRef(config: ElementConfig): boolean {
 /** dev 下校验 type：只允许内置标签(string)/函数/符号(如 Fragment) */
 export function validateElementType(type: unknown, _source: string | null): void {
   if (typeof type === 'function' || typeof type === 'string' || typeof type === 'symbol') {
+    return;
+  }
+  // Context 的 Provider 是 object 类型（$$typeof = REACT_PROVIDER_TYPE），同样合法
+  if (
+    typeof type === 'object' &&
+    type !== null &&
+    ((type as { $$typeof?: symbol }).$$typeof === REACT_PROVIDER_TYPE ||
+      (type as { $$typeof?: symbol }).$$typeof === REACT_CONTEXT_TYPE)
+  ) {
     return;
   }
   // 对应官方 invariant：'Element type is invalid: expected a string (for built-in

@@ -20,6 +20,11 @@ import {
   Layout as HookLayout,
   Passive as HookPassive,
 } from './ReactHookEffectTags';
+import {
+  prepareToReadContext,
+  readContext,
+  resetContextDependencies,
+} from './ReactFiberNewContext';
 import { requestUpdateLane, scheduleUpdateOnFiber } from './ReactFiberWorkLoop';
 
 // ---- 类型（非泛型，边界断言）----
@@ -77,6 +82,8 @@ export function renderWithHooks(
   workInProgress.updateQueue = null;
   workInProgressHook = null;
   currentHook = null;
+  // 重置本轮 context 依赖收集（第 11 章）
+  prepareToReadContext(workInProgress);
 
   if (current !== null && current.memoizedState !== null) {
     ReactSharedInternals.ReactCurrentDispatcher.current = HooksDispatcherOnUpdate;
@@ -98,6 +105,7 @@ export function renderWithHooks(
     workInProgressHook = null;
     currentHook = null;
     ReactSharedInternals.ReactCurrentDispatcher.current = null;
+    resetContextDependencies();
   }
 
   if (didRenderTooFewHooks) {
@@ -311,10 +319,6 @@ function getRootForUpdatedFiber(fiber: FiberNode): FiberRootNode {
   return node.stateNode as FiberRootNode;
 }
 
-function notImplemented(name: string, chapter: string): never {
-  throw new Error(`[react-reconciler] ${name} 尚未实现（第 ${chapter} 章）。`);
-}
-
 // ---- effect（第 9 章）----
 
 /** 把新 effect 挂到当前 fiber.updateQueue 的环形链表末尾（官方 pushEffect） */
@@ -473,7 +477,7 @@ const HooksDispatcherOnMount: Dispatcher = {
   useRef: mountRef,
   useMemo: mountMemo,
   useCallback: mountCallback,
-  useContext: () => notImplemented('useContext', '11'),
+  useContext: readContext,
 };
 
 const HooksDispatcherOnUpdate: Dispatcher = {
@@ -484,5 +488,5 @@ const HooksDispatcherOnUpdate: Dispatcher = {
   useRef: updateRef,
   useMemo: updateMemo,
   useCallback: updateCallback,
-  useContext: () => notImplemented('useContext', '11'),
+  useContext: readContext,
 };

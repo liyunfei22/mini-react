@@ -1,11 +1,15 @@
 // 对应官方 packages/react-reconciler/src/ReactFiberCompleteWork.old.js。
 // completeWork 自底向上执行：孩子都 complete 之后轮到父亲，此时才创建/更新真实 host 实例。
 // 挂载：createInstance；更新：prepareUpdate 算 props 差分 → 打 Update，commit 再用 payload 落 DOM。
+import type { ReactContext } from '@mini-react/shared';
 import { hostConfig } from './HostConfig';
 import type { FiberNode } from './ReactFiber';
 import { Update } from './ReactFiberFlags';
 import type { Lanes } from './ReactFiberLane';
+import { popProvider } from './ReactFiberNewContext';
 import {
+  ContextConsumer,
+  ContextProvider,
   Fragment,
   FunctionComponent,
   HostComponent,
@@ -97,7 +101,14 @@ export function completeWork(
       }
       return null;
     }
+    case ContextProvider: {
+      // 出 Provider：把 context._currentValue 恢复到进入前的值（与 beginWork 的 push 配对）
+      const context = (workInProgress.type as { _context: ReactContext<unknown> })._context;
+      popProvider(context);
+      return null;
+    }
     case HostRoot:
+    case ContextConsumer:
     case Fragment:
     case IndeterminateComponent:
     case FunctionComponent:

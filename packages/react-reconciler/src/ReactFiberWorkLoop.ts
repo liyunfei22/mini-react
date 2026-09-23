@@ -6,6 +6,7 @@ import { completeWork } from './ReactFiberCompleteWork';
 import { beginWork } from './ReactFiberBeginWork';
 import { commitRoot } from './ReactFiberCommitWork';
 import { createWorkInProgress } from './ReactFiber';
+import { resetContextStack } from './ReactFiberNewContext';
 import type { FiberNode } from './ReactFiber';
 import {
   getHighestPriorityLane,
@@ -105,6 +106,9 @@ function performSyncWorkOnRoot(root: FiberRootNode): void {
     root.pendingLanes = removeLanes(root.pendingLanes, renderLanes);
     root.callbackNode = null;
     root.callbackPriority = NoLanes;
+    // 回收 Provider 栈：渲染中途抛错时 completeWork 的 popProvider 不会执行，
+    // 不回收会导致 context._currentValue 残留、后续渲染值串味（第 11 章复核发现）。
+    resetContextStack();
   }
   // 成功结束时：若还有残留 lane，续排下一批（第 15 章多 lane 的入口）。
   // 抛错时本行不执行，但 finally 已清干净，下次调度可恢复（见 hooks.test 的"抛错后 root 复用"）。

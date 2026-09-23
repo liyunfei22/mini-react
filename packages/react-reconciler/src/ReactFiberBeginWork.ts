@@ -1,11 +1,15 @@
 // 对应官方 packages/react-reconciler/src/ReactFiberBeginWork.old.js。
 // beginWork：给定一个 wip fiber，把它的 children 变成一支 fiber 子链表，返回第一个 child。
 // workLoop 就靠"返回 child / 进 complete"来决定游标去向。
+import type { ReactContext } from '@mini-react/shared';
 import { mountChildFibers, reconcileChildFibers } from './ReactChildFiber';
 import type { FiberNode } from './ReactFiber';
 import { renderWithHooks } from './ReactFiberHooks';
 import type { Lanes } from './ReactFiberLane';
+import { pushProvider } from './ReactFiberNewContext';
 import {
+  ContextConsumer,
+  ContextProvider,
   Fragment,
   FunctionComponent,
   HostComponent,
@@ -76,6 +80,25 @@ function updateFunctionComponent(
   return workInProgress.child;
 }
 
+/** ContextProvider（<Ctx.Provider value=...>）：把新值写进 context 再渲染子树 */
+function updateContextProvider(
+  current: FiberNode | null,
+  workInProgress: FiberNode,
+  renderLanes: Lanes,
+): FiberNode | null {
+  const providerType = workInProgress.type as { _context: ReactContext<unknown> };
+  const context = providerType._context;
+  const newProps = (workInProgress.pendingProps ?? {}) as { value: unknown; children?: unknown };
+  const newValue = newProps.value;
+
+  // 官方此处：值变化时 propagateContextChange 只重渲染"订阅了这个 context"的消费者。
+  // mini 版当前无 bailout（整树重渲染），传播留到第 14~16 章 bailout 落地后再接入。
+
+  pushProvider(workInProgress, context, newValue);
+  reconcileChildren(current, workInProgress, newProps.children ?? null, renderLanes);
+  return workInProgress.child;
+}
+
 /** HostComponent（DOM 标签）：children 就是 props.children */
 function updateHostComponent(
   current: FiberNode | null,
@@ -109,6 +132,11 @@ export function beginWork(
       reconcileChildren(current, workInProgress, nextProps.children ?? null, renderLanes);
       return workInProgress.child;
     }
+    case ContextProvider:
+      return updateContextProvider(current, workInProgress, renderLanes);
+    case ContextConsumer:
+      // render-prop Consumer（<Ctx.Consumer>{v => ...}）在 mini 版未实现；只支持 Provider + useContext
+      throw new Error('[react-reconciler] render-prop Consumer 未支持，请用 useContext。');
     case HostRoot:
       return updateHostRoot(current, workInProgress, renderLanes);
     case HostComponent:

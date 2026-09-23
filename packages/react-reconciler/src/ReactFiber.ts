@@ -4,13 +4,20 @@
 // Fiber 是什么？一个可遍历的、带调度信息的节点树：
 // - 用 child / sibling / return 构成"链表树"，遍历不依赖递归（可随时中断）；
 // - 用 alternate 与 current 树成对，构成"双缓冲"：一棵是屏幕上已提交的，一棵是正在改的。
-import { REACT_ELEMENT_TYPE, REACT_FRAGMENT_TYPE } from '@mini-react/shared';
+import {
+  REACT_CONTEXT_TYPE,
+  REACT_ELEMENT_TYPE,
+  REACT_FRAGMENT_TYPE,
+  REACT_PROVIDER_TYPE,
+} from '@mini-react/shared';
 import { NoFlags, StaticMask } from './ReactFiberFlags';
 import type { Flags } from './ReactFiberFlags';
 import { NoLanes } from './ReactFiberLane';
 import type { Lanes } from './ReactFiberLane';
 import type { WorkTag } from './ReactWorkTags';
 import {
+  ContextConsumer,
+  ContextProvider,
   Fragment,
   HostComponent,
   HostRoot,
@@ -118,6 +125,18 @@ export function createFiberFromTypeAndProps(
     fiberTag = HostComponent; // 'div' / 'span' ...
   } else if (type === REACT_FRAGMENT_TYPE) {
     fiberTag = Fragment; // <>...</> 的分组节点
+  } else if (
+    typeof type === 'object' &&
+    type !== null &&
+    (type as { $$typeof?: symbol }).$$typeof === REACT_PROVIDER_TYPE
+  ) {
+    fiberTag = ContextProvider; // <Ctx.Provider value=...>
+  } else if (
+    typeof type === 'object' &&
+    type !== null &&
+    (type as { $$typeof?: symbol }).$$typeof === REACT_CONTEXT_TYPE
+  ) {
+    fiberTag = ContextConsumer; // <Ctx.Consumer>{v => ...}</Ctx.Consumer>
   } else if (typeof type === 'function') {
     fiberTag = IndeterminateComponent;
   }
@@ -185,15 +204,9 @@ export function createWorkInProgress(current: FiberNode, pendingProps: unknown):
   workInProgress.memoizedState = current.memoizedState;
   workInProgress.updateQueue = current.updateQueue;
 
-  // dependencies 是对象，避免与 current 共享引用（否则半个 wip 会污染 current）
-  const currentDependencies = current.dependencies;
-  workInProgress.dependencies =
-    currentDependencies === null
-      ? null
-      : {
-          lanes: currentDependencies.lanes,
-          firstContext: currentDependencies.firstContext,
-        };
+  // dependencies 刻意共享引用（官方语义）：wip 与 current 指向同一对象，
+  // 由 prepareToReadContext 在每轮渲染时 in-place 复位 firstContext。
+  workInProgress.dependencies = current.dependencies;
 
   workInProgress.sibling = current.sibling;
   workInProgress.index = current.index;

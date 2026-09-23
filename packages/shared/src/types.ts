@@ -26,12 +26,19 @@ export interface Transition {
   name?: string;
 }
 
-/** Context 的跨包类型骨架（第 11 章补全 Provider/Consumer 结构） */
+/** Context 的跨包类型（第 11 章：Provider 引用 + 当前值） */
 export interface ReactContext<T> {
   $$typeof: symbol;
   displayName?: string;
+  // _currentValue2 仅为对齐官方（双渲染器槽位）；mini 单渲染器只用 _currentValue
   _currentValue: T;
   _currentValue2: T;
+  Provider: {
+    $$typeof: symbol;
+    _context: ReactContext<T>;
+  };
+  // prod 语义下 Consumer 即 context 自身（render-prop 渲染路径 mini 版不支持，见 ReactContext.ts）
+  Consumer: ReactContext<T>;
 }
 
 /**

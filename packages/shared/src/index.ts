@@ -15,7 +15,12 @@ export {
 
 export { objectAssign } from './objectAssign';
 
-export { REACT_ELEMENT_TYPE, REACT_FRAGMENT_TYPE } from './ReactSymbols';
+export {
+  REACT_CONTEXT_TYPE,
+  REACT_ELEMENT_TYPE,
+  REACT_FRAGMENT_TYPE,
+  REACT_PROVIDER_TYPE,
+} from './ReactSymbols';
 
 // 总线单例（注册于 globalThis，全应用只此一份；reconciler 与 react 都从这拿）
 export { ReactSharedInternals } from './ReactSharedInternals';

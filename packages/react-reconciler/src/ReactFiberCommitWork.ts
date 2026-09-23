@@ -15,6 +15,8 @@ import {
 } from './ReactHookEffectTags';
 import { scheduleMicrotask } from './ReactFiberSyncTaskQueue';
 import {
+  ContextConsumer,
+  ContextProvider,
   Fragment,
   FunctionComponent,
   HostComponent,
@@ -229,7 +231,9 @@ function commitMutationEffectsOnFiber(finishedWork: FiberNode, root: FiberRootNo
   switch (finishedWork.tag) {
     case FunctionComponent:
     case IndeterminateComponent:
-    case Fragment: {
+    case Fragment:
+    case ContextProvider:
+    case ContextConsumer: {
       recursivelyTraverseMutationEffects(root, finishedWork);
       commitReconciliationEffects(finishedWork);
       if ((flags & Update) !== 0) {

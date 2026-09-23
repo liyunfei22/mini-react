@@ -30,6 +30,8 @@ export {
   useState,
 } from './ReactHooks';
 
+export { createContext } from './ReactContext';
+
 // 内部单例：react-dom 的 dist 从这里拿 ReactSharedInternals（hooks 章节开始使用）。
 // 命名对齐官方 __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED。
 export {

@@ -4,6 +4,7 @@ import { Demo03 } from './demos/03-commit/Demo03';
 import { Demo04 } from './demos/04-hooks/Demo04';
 import { Demo05 } from './demos/05-diff/Demo05';
 import { Demo06 } from './demos/06-effects/Demo06';
+import { Demo07 } from './demos/07-context/Demo07';
 
 /**
  * 演示页总览：所有 demo 都是函数组件，经 Fiber 渲染。
@@ -18,6 +19,7 @@ export function App() {
       <Demo04 />
       <Demo05 />
       <Demo06 />
+      <Demo07 />
     </div>
   );
 }
