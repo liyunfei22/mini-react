@@ -18,6 +18,7 @@ export { objectAssign } from './objectAssign';
 export {
   REACT_CONTEXT_TYPE,
   REACT_ELEMENT_TYPE,
+  REACT_FORWARD_REF_TYPE,
   REACT_FRAGMENT_TYPE,
   REACT_PROVIDER_TYPE,
 } from './ReactSymbols';

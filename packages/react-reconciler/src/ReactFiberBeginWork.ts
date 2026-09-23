@@ -10,6 +10,7 @@ import { pushProvider } from './ReactFiberNewContext';
 import {
   ContextConsumer,
   ContextProvider,
+  ForwardRef,
   Fragment,
   FunctionComponent,
   HostComponent,
@@ -126,6 +127,20 @@ export function beginWork(
     }
     case FunctionComponent:
       return updateFunctionComponent(current, workInProgress, renderLanes);
+    case ForwardRef: {
+      // forwardRef((props, ref) => ...)：把 ref 作为第二参传给 render
+      const render = (workInProgress.type as { render: (p: unknown, r: unknown) => unknown })
+        .render;
+      const nextChildren = renderWithHooks(
+        current,
+        workInProgress,
+        render,
+        workInProgress.pendingProps ?? {},
+        workInProgress.ref,
+      );
+      reconcileChildren(current, workInProgress, nextChildren, renderLanes);
+      return workInProgress.child;
+    }
     case Fragment: {
       // Fragment 只是"分组"：直接把自己的 children 当作子节点 reconcile
       const nextProps = (workInProgress.pendingProps ?? {}) as { children?: unknown };

@@ -5,7 +5,7 @@
 // layout 阶段（refs/layout effects）读到的是新树。
 import { hostConfig } from './HostConfig';
 import type { FiberNode } from './ReactFiber';
-import { LayoutMask, MutationMask, PassiveMask, Placement, Update } from './ReactFiberFlags';
+import { LayoutMask, MutationMask, PassiveMask, Placement, Ref, Update } from './ReactFiberFlags';
 import { NoLanes, removeLanes } from './ReactFiberLane';
 import type { FiberRootNode } from './ReactFiberRoot';
 import {
@@ -17,6 +17,7 @@ import { scheduleMicrotask } from './ReactFiberSyncTaskQueue';
 import {
   ContextConsumer,
   ContextProvider,
+  ForwardRef,
   Fragment,
   FunctionComponent,
   HostComponent,
@@ -82,12 +83,43 @@ function recursivelyTraverseLayoutEffects(root: FiberRootNode, parentFiber: Fibe
 function commitLayoutEffectOnFiber(finishedWork: FiberNode): void {
   switch (finishedWork.tag) {
     case FunctionComponent:
+    case ForwardRef:
     case Fragment:
     case IndeterminateComponent:
       commitHookEffectListMount(HookLayout | HookHasEffect, finishedWork);
       return;
+    case HostComponent: {
+      // ref 在布局阶段 attach（DOM 已就位，读到的是新树）
+      if ((finishedWork.flags & Ref) !== 0) {
+        commitAttachRef(finishedWork);
+      }
+      return;
+    }
     default:
       return;
+  }
+}
+
+// ---- ref 的 attach / detach ----
+function commitAttachRef(finishedWork: FiberNode): void {
+  const ref = finishedWork.ref;
+  if (ref !== null) {
+    attachRef(ref, finishedWork.stateNode);
+  }
+}
+
+function detachRef(finishedWork: FiberNode): void {
+  const ref = finishedWork.ref;
+  if (ref !== null) {
+    attachRef(ref, null); // 函数 ref 收 null；对象 ref.current = null
+  }
+}
+
+function attachRef(ref: unknown, instance: unknown): void {
+  if (typeof ref === 'function') {
+    ref(instance);
+  } else if (ref !== null && typeof ref === 'object') {
+    (ref as { current: unknown }).current = instance;
   }
 }
 
@@ -159,6 +191,7 @@ function recursivelyTraversePassiveUnmountEffects(parentFiber: FiberNode): void 
 function commitPassiveUnmountEffectsOnFiber(finishedWork: FiberNode): void {
   switch (finishedWork.tag) {
     case FunctionComponent:
+    case ForwardRef:
     case Fragment:
     case IndeterminateComponent:
       commitHookEffectListUnmount(HookPassive | HookHasEffect, finishedWork);
@@ -186,6 +219,7 @@ function recursivelyTraversePassiveMountEffects(parentFiber: FiberNode): void {
 function commitPassiveMountEffectsOnFiber(finishedWork: FiberNode): void {
   switch (finishedWork.tag) {
     case FunctionComponent:
+    case ForwardRef:
     case Fragment:
     case IndeterminateComponent:
       commitHookEffectListMount(HookPassive | HookHasEffect, finishedWork);
@@ -231,6 +265,7 @@ function commitMutationEffectsOnFiber(finishedWork: FiberNode, root: FiberRootNo
   switch (finishedWork.tag) {
     case FunctionComponent:
     case IndeterminateComponent:
+    case ForwardRef:
     case Fragment:
     case ContextProvider:
     case ContextConsumer: {
@@ -250,6 +285,13 @@ function commitMutationEffectsOnFiber(finishedWork: FiberNode, root: FiberRootNo
     case HostComponent: {
       recursivelyTraverseMutationEffects(root, finishedWork);
       commitReconciliationEffects(finishedWork);
+      // 先 detach 旧 ref（mutation 阶段，用 alternate 的旧 ref），布局阶段再 attach 新的
+      if ((flags & Ref) !== 0) {
+        const current = finishedWork.alternate;
+        if (current !== null) {
+          detachRef(current);
+        }
+      }
       if ((flags & Update) !== 0) {
         const instance = finishedWork.stateNode;
         const current = finishedWork.alternate;
@@ -378,6 +420,9 @@ function commitDeletionEffects(root: FiberRootNode, fiberToDelete: FiberNode): v
   const tag = fiberToDelete.tag;
   if (tag === HostComponent || tag === HostText) {
     // host 节点：删它一个，其 DOM 子树就一起没了，绝不能再去递归删子节点（会重复 remove）
+    if (tag === HostComponent) {
+      detachRef(fiberToDelete); // 卸载前把 ref 置空
+    }
     const { parent, isContainer } = getHostParent(fiberToDelete);
     if (isContainer) {
       hostConfig.removeChildFromContainer(parent, fiberToDelete.stateNode);
@@ -390,7 +435,12 @@ function commitDeletionEffects(root: FiberRootNode, fiberToDelete: FiberNode): v
   // 注意：删除路径按"纯 phase 位"判定（不带 HasEffect）——否则 deps 不变的 carried effect
   // 的 destroy 会被跳过、cleanup 永不触发（第 9 章复核发现的泄漏）。
   // 简化说明：官方把被动 cleanup 推迟到异步 flush，mini 版先同步于此（时序差异见文章）。
-  if (tag === FunctionComponent || tag === IndeterminateComponent || tag === Fragment) {
+  if (
+    tag === FunctionComponent ||
+    tag === ForwardRef ||
+    tag === IndeterminateComponent ||
+    tag === Fragment
+  ) {
     commitHookEffectListUnmount(HookLayout, fiberToDelete);
     commitHookEffectListUnmount(HookPassive, fiberToDelete);
   }

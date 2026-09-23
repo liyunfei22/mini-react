@@ -7,6 +7,7 @@
 import {
   REACT_CONTEXT_TYPE,
   REACT_ELEMENT_TYPE,
+  REACT_FORWARD_REF_TYPE,
   REACT_FRAGMENT_TYPE,
   REACT_PROVIDER_TYPE,
 } from '@mini-react/shared';
@@ -18,6 +19,7 @@ import type { WorkTag } from './ReactWorkTags';
 import {
   ContextConsumer,
   ContextProvider,
+  ForwardRef,
   Fragment,
   HostComponent,
   HostRoot,
@@ -108,10 +110,11 @@ export interface FiberElement {
   type: unknown;
   key: null | string;
   props: unknown;
+  ref: unknown;
 }
 
 /**
- * 从 element 的 type/props 造一个 fiber —— 官方 createFiberFromTypeAndProps。
+ * 从 element 的 type/props/ref 造一个 fiber —— 官方 createFiberFromTypeAndProps。
  * 函数/类组件先记为 IndeterminateComponent（渲染时才确认），字符串类型是 HostComponent。
  */
 export function createFiberFromTypeAndProps(
@@ -119,6 +122,7 @@ export function createFiberFromTypeAndProps(
   key: null | string,
   pendingProps: unknown,
   mode: FiberMode,
+  ref?: unknown,
 ): FiberNode {
   let fiberTag: WorkTag = IndeterminateComponent;
   if (typeof type === 'string') {
@@ -137,18 +141,27 @@ export function createFiberFromTypeAndProps(
     (type as { $$typeof?: symbol }).$$typeof === REACT_CONTEXT_TYPE
   ) {
     fiberTag = ContextConsumer; // <Ctx.Consumer>{v => ...}</Ctx.Consumer>
+  } else if (
+    typeof type === 'object' &&
+    type !== null &&
+    (type as { $$typeof?: symbol }).$$typeof === REACT_FORWARD_REF_TYPE
+  ) {
+    fiberTag = ForwardRef; // forwardRef((props, ref) => ...)
   } else if (typeof type === 'function') {
     fiberTag = IndeterminateComponent;
   }
   const fiber = createFiber(fiberTag, pendingProps, key, mode);
   fiber.elementType = type;
   fiber.type = type;
+  if (ref !== undefined) {
+    fiber.ref = ref;
+  }
   return fiber;
 }
 
 /** 从 element 造 fiber —— 官方 createFiberFromElement */
 export function createFiberFromElement(element: FiberElement, mode: FiberMode): FiberNode {
-  return createFiberFromTypeAndProps(element.type, element.key, element.props, mode);
+  return createFiberFromTypeAndProps(element.type, element.key, element.props, mode, element.ref);
 }
 
 /** 从文本造 fiber —— 官方 createFiberFromText（文本内容存在 pendingProps） */

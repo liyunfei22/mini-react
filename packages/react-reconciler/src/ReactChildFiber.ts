@@ -8,15 +8,16 @@
 import { REACT_ELEMENT_TYPE } from '@mini-react/shared';
 import { createFiberFromElement, createFiberFromText, createWorkInProgress } from './ReactFiber';
 import type { FiberNode } from './ReactFiber';
-import { ChildDeletion, Placement } from './ReactFiberFlags';
+import { ChildDeletion, Placement, Ref } from './ReactFiberFlags';
 import type { Lanes } from './ReactFiberLane';
-import { HostText } from './ReactWorkTags';
+import { HostComponent, HostText } from './ReactWorkTags';
 
 type FiberElement = {
   $$typeof: symbol;
   type: unknown;
   key: null | string;
   props: Record<string, unknown>;
+  ref: unknown;
 };
 
 export function ChildReconciler(shouldTrackSideEffects: boolean) {
@@ -59,6 +60,7 @@ export function ChildReconciler(shouldTrackSideEffects: boolean) {
       if (element.$$typeof === REACT_ELEMENT_TYPE) {
         const created = createFiberFromElement(element, mode);
         created.return = returnFiber;
+        markRef(created, element.ref);
         return created;
       }
     }
@@ -71,6 +73,27 @@ export function ChildReconciler(shouldTrackSideEffects: boolean) {
     clone.index = 0;
     clone.sibling = null;
     return clone;
+  }
+
+  /** ref 有值就记到 fiber 上；只有 host 才打 Ref flag（commit 布局阶段据此 attachRef）。
+   *  ForwardRef / 函数组件的 ref 会经 render(props, ref) 转发到内部 host，再在那一层 attach。 */
+  function markRef(newFiber: FiberNode, ref: unknown): void {
+    if (ref === undefined) {
+      ref = null; // 未提供 ref 视为 null（官方 element 恒有 ref 字段，测试里手写 element 可能省略）
+    }
+    // coerceRef：只接受 function / object / null（字符串 ref 已废弃，DEV 下直接报错）
+    if (__DEV__ && ref !== null && typeof ref !== 'function' && typeof ref !== 'object') {
+      throw new Error('Element ref was specified as a non-object, non-function, non-null value.');
+    }
+    newFiber.ref = ref; // 无条件赋值（包含 null，保证"移除 ref"也被记录）
+    if (newFiber.tag === HostComponent) {
+      const current = newFiber.alternate;
+      const changed =
+        (current === null && ref !== null) || (current !== null && current.ref !== ref);
+      if (changed) {
+        newFiber.flags |= Ref;
+      }
+    }
   }
 
   function deleteChild(returnFiber: FiberNode, childToDelete: FiberNode): void {
@@ -115,6 +138,7 @@ export function ChildReconciler(shouldTrackSideEffects: boolean) {
           deleteRemainingChildren(returnFiber, child.sibling);
           const existing = useFiber(child, element.props);
           existing.return = returnFiber;
+          markRef(existing, element.ref);
           return existing;
         }
         deleteRemainingChildren(returnFiber, child);
@@ -125,6 +149,7 @@ export function ChildReconciler(shouldTrackSideEffects: boolean) {
     }
     const created = createFiberFromElement(element, returnFiber.mode);
     created.return = returnFiber;
+    markRef(created, element.ref);
     return created;
   }
 
@@ -180,10 +205,12 @@ export function ChildReconciler(shouldTrackSideEffects: boolean) {
     if (current !== null && current.elementType === element.type) {
       const existing = useFiber(current, element.props);
       existing.return = returnFiber;
+      markRef(existing, element.ref);
       return existing;
     }
     const created = createFiberFromElement(element, returnFiber.mode);
     created.return = returnFiber;
+    markRef(created, element.ref);
     return created;
   }
 

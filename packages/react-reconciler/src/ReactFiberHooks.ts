@@ -73,8 +73,9 @@ function basicStateReducer<S>(state: S, action: SetStateAction<S>): S {
 export function renderWithHooks(
   current: FiberNode | null,
   workInProgress: FiberNode,
-  Component: (props: unknown) => unknown,
+  Component: (props: unknown, secondArg?: unknown) => unknown,
   props: unknown,
+  secondArg?: unknown,
 ): unknown {
   currentlyRenderingFiber = workInProgress;
   workInProgress.memoizedState = null;
@@ -94,7 +95,7 @@ export function renderWithHooks(
   let children: unknown;
   let didRenderTooFewHooks: boolean;
   try {
-    children = Component(props);
+    children = Component(props, secondArg);
     // 官方：渲染完 currentHook 应已走到 current 链尾；没走完 = 本轮少调了 hook（提前 return）
     // 用局部变量 + 断言，避免 TS 把模块级 currentHook 窄化成 null
     const ch = currentHook as Hook | null;
