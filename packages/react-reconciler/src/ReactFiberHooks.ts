@@ -408,14 +408,71 @@ function updateLayoutEffect(create: Effect['create'], deps: unknown[] | null): v
   return updateEffectImpl(UpdateFlag, HookLayout, create, deps);
 }
 
+// ---- 记忆化三兄弟（第 10 章）：都只是"把值/fn/对象存到 hook.memoizedState"----
+function mountMemo<T>(nextCreate: () => T, deps: unknown[] | undefined | null): T {
+  const hook = mountWorkInProgressHook();
+  const nextDeps = deps === undefined ? null : deps;
+  const nextValue = nextCreate();
+  hook.memoizedState = [nextValue, nextDeps];
+  return nextValue;
+}
+
+function updateMemo<T>(nextCreate: () => T, deps: unknown[] | undefined | null): T {
+  const hook = updateWorkInProgressHook();
+  const nextDeps = deps === undefined ? null : deps;
+  const prevState = hook.memoizedState as [T, unknown[] | null];
+  if (nextDeps !== null && areHookInputsEqual(nextDeps, prevState[1])) {
+    return prevState[0]; // deps 没变 → 复用旧值，不重算
+  }
+  const nextValue = nextCreate();
+  hook.memoizedState = [nextValue, nextDeps];
+  return nextValue;
+}
+
+function mountCallback<T extends (...args: never[]) => unknown>(
+  callback: T,
+  deps: unknown[] | undefined | null,
+): T {
+  const hook = mountWorkInProgressHook();
+  const nextDeps = deps === undefined ? null : deps;
+  hook.memoizedState = [callback, nextDeps];
+  return callback;
+}
+
+function updateCallback<T extends (...args: never[]) => unknown>(
+  callback: T,
+  deps: unknown[] | undefined | null,
+): T {
+  const hook = updateWorkInProgressHook();
+  const nextDeps = deps === undefined ? null : deps;
+  const prevState = hook.memoizedState as [T, unknown[] | null];
+  if (nextDeps !== null && areHookInputsEqual(nextDeps, prevState[1])) {
+    return prevState[0]; // deps 没变 → 返回同一个引用，避免下游组件重渲染
+  }
+  hook.memoizedState = [callback, nextDeps];
+  return callback;
+}
+
+function mountRef<T>(initialValue: T): { current: T } {
+  const hook = mountWorkInProgressHook();
+  const ref = { current: initialValue };
+  hook.memoizedState = ref;
+  return ref;
+}
+
+function updateRef<T>(_initialValue: T): { current: T } {
+  const hook = updateWorkInProgressHook();
+  return hook.memoizedState as { current: T };
+}
+
 const HooksDispatcherOnMount: Dispatcher = {
   useState: mountState,
   useReducer: mountReducer,
   useEffect: mountEffect,
   useLayoutEffect: mountLayoutEffect,
-  useRef: () => notImplemented('useRef', '10'),
-  useMemo: () => notImplemented('useMemo', '10'),
-  useCallback: () => notImplemented('useCallback', '10'),
+  useRef: mountRef,
+  useMemo: mountMemo,
+  useCallback: mountCallback,
   useContext: () => notImplemented('useContext', '11'),
 };
 
@@ -424,8 +481,8 @@ const HooksDispatcherOnUpdate: Dispatcher = {
   useReducer: updateReducer,
   useEffect: updateEffect,
   useLayoutEffect: updateLayoutEffect,
-  useRef: () => notImplemented('useRef', '10'),
-  useMemo: () => notImplemented('useMemo', '10'),
-  useCallback: () => notImplemented('useCallback', '10'),
+  useRef: updateRef,
+  useMemo: updateMemo,
+  useCallback: updateCallback,
   useContext: () => notImplemented('useContext', '11'),
 };
