@@ -21,14 +21,46 @@ export type { RootTag } from './ReactFiberRoot';
 export * from './ReactFiberFlags';
 
 export {
+  DefaultLane,
+  InputContinuousLane,
+  IdleLane,
+  NonIdleLanes,
   NoLane,
   NoLanes,
+  NoTimestamp,
+  OffscreenLane,
+  RetryLanes,
   SyncLane,
   TotalLanes,
+  TransitionLanes,
+  claimNextTransitionLane,
+  createLaneMap,
   getHighestPriorityLane,
+  getLanesToRetrySynchronouslyOnError,
+  getNextLanes,
+  hasAnyLanes,
+  includesExpiredLane,
+  includesNonIdleWork,
+  includesSyncLane,
+  intersectLanes,
   isSubsetOfLanes,
+  isTransitionLane,
+  laneToIndex,
+  lanesToEventPriority,
+  markRootEntangled,
+  markRootExpired,
+  markRootFinished,
+  markRootMutableRead,
+  markRootPinged,
+  markRootSuspended,
+  markRootUpdated,
+  markStarvedLanesAsExpired,
+  mergeLanes,
+  pickArbitraryLane,
+  pickArbitraryLaneIndex,
+  removeLanes,
 } from './ReactFiberLane';
-export type { Lane, Lanes } from './ReactFiberLane';
+export type { Lane, LaneMap, Lanes } from './ReactFiberLane';
 
 export {
   ClassComponent,

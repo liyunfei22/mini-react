@@ -3,8 +3,8 @@
 // 全局调度信息；它的 current 指向 HostRoot fiber（真正的树根）。
 import { createHostRootFiber } from './ReactFiber';
 import type { FiberNode } from './ReactFiber';
-import { NoLanes, NoLane } from './ReactFiberLane';
-import type { Lanes, Lane } from './ReactFiberLane';
+import { createLaneMap, NoLanes, NoLane, NoTimestamp } from './ReactFiberLane';
+import type { LaneMap, Lanes, Lane } from './ReactFiberLane';
 
 // 官方 ReactRootTags.js；React 18 用 ConcurrentRoot（legacy render 用 LegacyRoot）
 export const LegacyRoot = 0;
@@ -25,13 +25,20 @@ export class FiberRootNode {
   callbackNode: unknown = null;
   callbackPriority: Lane = NoLane;
 
-  // ---- Lane 相关调度状态（第 15 章扩展 getNextLanes 等） ----
+  // ---- Lane 相关调度状态（第 15 章：getNextLanes / 饥饿过期）----
   pendingLanes: Lanes = NoLanes;
   suspendedLanes: Lanes = NoLanes;
   pingedLanes: Lanes = NoLanes;
   expiredLanes: Lanes = NoLanes;
   finishedLanes: Lanes = NoLanes;
-  // 官方在此还存 entanglements（lane 纠缠关系，与 Suspense 相关），mini 版第 15 章按需补
+  entangledLanes: Lanes = NoLanes;
+  mutableReadLanes: Lanes = NoLanes;
+  /** 每条 lane 最近一次更新的时间（官方 eventTimes） */
+  eventTimes: LaneMap<number> = createLaneMap(NoTimestamp);
+  /** 每条 lane 的过期时间（官方 expirationTimes，用于饥饿保护） */
+  expirationTimes: LaneMap<number> = createLaneMap(NoTimestamp);
+  /** 每条 lane 的纠缠关系（官方 entanglements；本系列无 Suspense，恒为 NoLanes） */
+  entanglements: LaneMap<Lanes> = createLaneMap(NoLanes);
 
   constructor(containerInfo: unknown, tag: RootTag) {
     this.tag = tag;

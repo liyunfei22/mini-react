@@ -4,20 +4,25 @@
 // 第 14~16 章会在此加并发（workLoopConcurrent 的 shouldYield、Scheduler、Lane 优先级）。
 import { completeWork } from './ReactFiberCompleteWork';
 import { beginWork } from './ReactFiberBeginWork';
+import { unstable_now } from '@mini-react/scheduler';
 import { commitRoot } from './ReactFiberCommitWork';
 import { createWorkInProgress } from './ReactFiber';
 import { resetContextStack } from './ReactFiberNewContext';
 import type { FiberNode } from './ReactFiber';
 import {
+  claimNextTransitionLane,
   getHighestPriorityLane,
   getNextLanes,
   includesSyncLane,
+  markRootUpdated as markRootUpdatedLane,
+  markStarvedLanesAsExpired,
   NoLane,
   NoLanes,
   removeLanes,
   SyncLane,
 } from './ReactFiberLane';
 import type { Lane } from './ReactFiberLane';
+import { ReactSharedInternals } from '@mini-react/shared';
 import type { FiberRootNode } from './ReactFiberRoot';
 import {
   flushSyncCallbacks,
@@ -93,7 +98,7 @@ function renderRootSync(root: FiberRootNode, lanes: Lane): void {
 
 /** 同步渲染 + commit（官方 performSyncWorkOnRoot 的精简） */
 function performSyncWorkOnRoot(root: FiberRootNode): void {
-  const renderLanes = getNextLanes(root);
+  const renderLanes = getNextLanes(root, NoLanes);
   try {
     renderRootSync(root, renderLanes);
     if (root.finishedWork !== null) {
@@ -117,20 +122,17 @@ function performSyncWorkOnRoot(root: FiberRootNode): void {
   }
 }
 
-/** 标记 root 有了新的待处理优先级（官方 markRootUpdated） */
-function markRootUpdated(root: FiberRootNode, lane: Lane): void {
-  root.pendingLanes |= lane;
-}
-
-/** 决定一次更新的优先级 lane（官方 requestUpdateLane 的骨架，四条路径留全占位） */
+/** 决定一次更新的优先级 lane（官方 requestUpdateLane，四条路径） */
 export function requestUpdateLane(_fiber: FiberNode): Lane {
-  // 官方四条路径（按顺序）：
-  // ① legacy mode（mode 不含 ConcurrentMode）→ SyncLane；本仓库只做并发模式，不需要。
-  // ② 渲染期更新（executionContext & RenderContext）→ pickArbitraryLane(workInProgressRootRenderLanes)；第 16 章。
-  // ③ transition → claimNextTransitionLane()；第 16 章。
-  // ④ flushSync 等显式优先级（getCurrentUpdatePriority）→ 直接使用；第 15 章。
-  // ⑤ 否则读当前事件优先级 → 映射到 lane；第 15 章事件系统接上后补。
-  // 现阶段（无事件/无 transition）统一回落到同步泳道。
+  // ① legacy mode（不含 ConcurrentMode）→ SyncLane；本仓库只做并发模式，跳过。
+  // ② 渲染期更新 → 复用当前渲染 lane；本仓库由 dispatch 端抛错拦截，跳过。
+  // ③ transition（useTransition 包裹）→ 动态申请一条 transition 泳道（第 16 章正式启用）。
+  const transition = ReactSharedInternals.ReactCurrentBatchConfig.transition;
+  if (transition !== null) {
+    return claimNextTransitionLane();
+  }
+  // ④/⑤ 事件优先级 → lane：第 16 章接 getCurrentEventPriority 后按优先级选泳道；
+  // 现阶段统一回落 SyncLane（事件触发后的 setState 仍同步渲染）。
   return SyncLane;
 }
 
@@ -140,7 +142,10 @@ export function requestUpdateLane(_fiber: FiberNode): Lane {
  * 复用判断用 callbackNode/callbackPriority（官方语义），不是"lane 位已在 pending 里"。
  */
 function ensureRootIsScheduled(root: FiberRootNode): void {
-  const nextLanes = getNextLanes(root);
+  const currentTime = unstable_now();
+  // 饥饿保护：把"过期"的 lane 标记出来（低优先级最终也要跑）
+  markStarvedLanesAsExpired(root, currentTime);
+  const nextLanes = getNextLanes(root, NoLanes);
   if (nextLanes === NoLanes) {
     // 无事可做：没有待调度 lane（官方还会 cancel 掉现有 callback）
     root.callbackNode = null;
@@ -158,18 +163,17 @@ function ensureRootIsScheduled(root: FiberRootNode): void {
       root.callbackNode = {}; // 占位（第 16 章换成真正 scheduler task）
     }
   } else {
-    // 并发路径：第 14~16 章 scheduleCallback(Scheduler, performConcurrentWorkOnRoot)
-    throw new Error('[react-reconciler] 并发调度尚未实现（第 14~16 章）。');
+    // 并发路径：第 16 章 scheduleCallback(Scheduler, performConcurrentWorkOnRoot)
+    throw new Error('[react-reconciler] 并发调度尚未实现（第 16 章）。');
   }
 }
 
 /**
  * 调度一次更新（官方 scheduleUpdateOnFiber 的精简）。
- * 官方此处还有 render-phase 分支（渲染中触发 → mergeLanes 到 workInProgressRootRenderPhaseUpdatedLanes
- * 留待本轮结束重渲染）；mini 版第 6 章已由 dispatch 端抛错拦截渲染期更新，故 `fiber` 暂不使用。
+ * 官方此处还有 render-phase 分支；mini 版由 dispatch 端抛错拦截渲染期更新。
  */
 export function scheduleUpdateOnFiber(root: FiberRootNode, _fiber: FiberNode, lane: Lane): void {
-  markRootUpdated(root, lane);
+  markRootUpdatedLane(root, lane, unstable_now());
   ensureRootIsScheduled(root);
 }
 
