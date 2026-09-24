@@ -79,11 +79,7 @@ function propKeyFromEvent(eventType: string): string {
   }
 }
 
-const REGISTERED_EVENTS = [
-  ...DISCRETE_EVENTS,
-  ...CONTINUOUS_EVENTS,
-  ...NON_DELEGATED_EVENTS,
-];
+const REGISTERED_EVENTS = [...DISCRETE_EVENTS, ...CONTINUOUS_EVENTS, ...NON_DELEGATED_EVENTS];
 
 const attachedRoots = new Set<EventTarget>();
 
@@ -92,14 +88,22 @@ export function attachRootListeners(rootElement: EventTarget): void {
   attachedRoots.add(rootElement);
   for (const eventType of REGISTERED_EVENTS) {
     // 捕获监听：让 onXxxCapture 在真实原生捕获阶段 dispatch；也接住不冒泡的事件
-    rootElement.addEventListener(eventType, (nativeEvent) => {
-      dispatchEvent(eventType, nativeEvent, rootElement, 'capture');
-    }, true);
+    rootElement.addEventListener(
+      eventType,
+      (nativeEvent) => {
+        dispatchEvent(eventType, nativeEvent, rootElement, 'capture');
+      },
+      true,
+    );
     // 冒泡监听：普通冒泡事件在事件冒到根时 dispatch 冒泡阶段 handler
     if (!NON_DELEGATED_EVENTS.has(eventType)) {
-      rootElement.addEventListener(eventType, (nativeEvent) => {
-        dispatchEvent(eventType, nativeEvent, rootElement, 'bubble');
-      }, false);
+      rootElement.addEventListener(
+        eventType,
+        (nativeEvent) => {
+          dispatchEvent(eventType, nativeEvent, rootElement, 'bubble');
+        },
+        false,
+      );
     }
   }
 }
