@@ -74,7 +74,7 @@ function updateFunctionComponent(
 ): FiberNode | null {
   const Component = workInProgress.type as (props: unknown) => unknown;
   const props = workInProgress.pendingProps ?? {};
-  const nextChildren = renderWithHooks(current, workInProgress, Component, props);
+  const nextChildren = renderWithHooks(current, workInProgress, Component, props, undefined, renderLanes);
   // 官方：首次渲染时 tag 是 IndeterminateComponent，确认是函数组件后升级为 FunctionComponent
   workInProgress.tag = FunctionComponent;
   reconcileChildren(current, workInProgress, nextChildren, renderLanes);
@@ -137,6 +137,7 @@ export function beginWork(
         render,
         workInProgress.pendingProps ?? {},
         workInProgress.ref,
+        renderLanes,
       );
       reconcileChildren(current, workInProgress, nextChildren, renderLanes);
       return workInProgress.child;

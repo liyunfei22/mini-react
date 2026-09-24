@@ -5,6 +5,7 @@
 import {
   createContainer,
   flushSyncCallbacks,
+  flushSync,
   initializeHostConfig,
   updateContainer,
 } from '@mini-react/react-reconciler';
@@ -56,3 +57,6 @@ export function hydrateRoot(
 ): unknown {
   throw new Error('[react-dom] hydrateRoot 未实现（本系列不做 SSR）。');
 }
+
+/** flushSync —— 同步 flush 一批更新（官方从 react-dom 导出；第 16 章） */
+export { flushSync };

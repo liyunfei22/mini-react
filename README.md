@@ -90,7 +90,7 @@ apps/playground ─▶ @mini-react/react / react-dom（仅 apps 层可 import re
 | 05    | 提交阶段 commitRoot                                  | ✅ 已完成                             |
 | 06~10 | Hooks 全家桶                                         | 🚧 06 完成（useState/useReducer）     |
 | 11~13 | Context / refs / 合成事件                            | 🕐 未开始                             |
-| 14~16 | Scheduler / Lane / 并发升级                          | 🕐 未开始                             |
+| 14~16 | Scheduler / Lane / 并发升级                          | ✅ 全部完成                           |
 | 17    | 发布打磨与全链复盘                                   | 🕐 未开始                             |
 
 > 进度事实源：`articles/README.md`。新增篇章用 `pnpm article:new`（`node tools/new-article.mjs NN slug 标题`）。

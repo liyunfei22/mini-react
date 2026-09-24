@@ -4,24 +4,43 @@
 // 第 14~16 章会在此加并发（workLoopConcurrent 的 shouldYield、Scheduler、Lane 优先级）。
 import { completeWork } from './ReactFiberCompleteWork';
 import { beginWork } from './ReactFiberBeginWork';
-import { unstable_now } from '@mini-react/scheduler';
+import {
+  unstable_IdlePriority,
+  unstable_ImmediatePriority,
+  unstable_LowPriority,
+  unstable_NormalPriority,
+  unstable_now,
+  unstable_scheduleCallback,
+  unstable_shouldYield,
+  unstable_UserBlockingPriority,
+} from '@mini-react/scheduler';
 import { commitRoot } from './ReactFiberCommitWork';
 import { createWorkInProgress } from './ReactFiber';
 import { resetContextStack } from './ReactFiberNewContext';
 import type { FiberNode } from './ReactFiber';
 import {
   claimNextTransitionLane,
+  DefaultHydrationLane,
+  DefaultLane,
   getHighestPriorityLane,
   getNextLanes,
+  hasAnyLanes,
+  includesBlockingLane,
+  includesExpiredLane,
   includesSyncLane,
+  InputContinuousHydrationLane,
+  InputContinuousLane,
   markRootUpdated as markRootUpdatedLane,
   markStarvedLanesAsExpired,
   NoLane,
   NoLanes,
   removeLanes,
+  RetryLanes,
+  SelectiveHydrationLane,
   SyncLane,
+  TransitionLanes,
 } from './ReactFiberLane';
-import type { Lane } from './ReactFiberLane';
+import type { Lane, Lanes } from './ReactFiberLane';
 import { ReactSharedInternals } from '@mini-react/shared';
 import type { FiberRootNode } from './ReactFiberRoot';
 import {
@@ -30,13 +49,20 @@ import {
   scheduleSyncCallback,
 } from './ReactFiberSyncTaskQueue';
 
-// ---- 模块级"渲染上下文"（官方用全局 workInProgress / workInProgressRoot 持有；后者在并发章节引入）----
+// ---- 模块级"渲染上下文" ----
 let workInProgress: FiberNode | null = null;
+let workInProgressRootRenderLanes: Lanes = NoLanes;
+
+// 当前"显式优先级"（flushSync 设 SyncLane；第 16 章 requestUpdateLane 读它）
+let currentUpdatePriority: Lane = NoLane;
+
+const RootIncomplete = 0;
+const RootCompleted = 2;
 
 function prepareFreshStack(root: FiberRootNode): void {
+  workInProgressRootRenderLanes = NoLanes;
   // 出现果树：从 current 造出 workInProgress。
-  // 注意 pendingProps 要透传——updateContainer 把 element 写进了 root.current.pendingProps，
-  // 这里传 null 会把待渲染内容抹掉（官方走 UpdateQueue 而非 pendingProps，第 6 章对齐）。
+  // 注意 pendingProps 要透传——updateContainer 把 element 写进了 root.current.pendingProps。
   workInProgress = createWorkInProgress(root.current, root.current.pendingProps);
 }
 
@@ -45,6 +71,26 @@ function workLoopSync(lanes: Lane): void {
   while (workInProgress !== null) {
     performUnitOfWork(workInProgress, lanes);
   }
+}
+
+/** 并发渲染主循环：每个工作单元前都问 shouldYield，时间片用尽即中断（第 16 章） */
+function workLoopConcurrent(): void {
+  while (workInProgress !== null && !unstable_shouldYield()) {
+    performUnitOfWork(workInProgress, workInProgressRootRenderLanes);
+  }
+}
+
+function lanesToSchedulerPriority(lanes: Lanes): number {
+  const lane = getHighestPriorityLane(lanes);
+  if (hasAnyLanes(lane, SyncLane)) return unstable_ImmediatePriority;
+  if (hasAnyLanes(lane, InputContinuousHydrationLane | InputContinuousLane)) {
+    return unstable_UserBlockingPriority;
+  }
+  if (hasAnyLanes(lane, DefaultHydrationLane | DefaultLane)) return unstable_NormalPriority;
+  if (hasAnyLanes(lane, TransitionLanes | RetryLanes | SelectiveHydrationLane)) {
+    return unstable_LowPriority;
+  }
+  return unstable_IdlePriority;
 }
 
 function performUnitOfWork(unitOfWork: FiberNode, lanes: Lane): void {
@@ -89,11 +135,29 @@ function completeUnitOfWork(unitOfWork: FiberNode, lanes: Lane): void {
 
 function renderRootSync(root: FiberRootNode, lanes: Lane): void {
   prepareFreshStack(root);
+  workInProgressRootRenderLanes = lanes;
   workLoopSync(lanes);
   // 成品树 = root.current 的 alternate（prepareFreshStack 里 createWorkInProgress 已让两者互为 alternate）
   root.finishedWork = root.current.alternate;
   root.finishedLanes = lanes;
   workInProgress = null;
+  workInProgressRootRenderLanes = NoLanes;
+}
+
+/** 并发渲染（可中断）：时间片用尽返回 RootIncomplete，完成才产出 finishedWork（第 16 章） */
+function renderRootConcurrent(root: FiberRootNode, lanes: Lane): number {
+  prepareFreshStack(root);
+  workInProgressRootRenderLanes = lanes;
+  workLoopConcurrent();
+  if (workInProgress !== null) {
+    // 时间片用尽被打断——不产出 finishedWork（current 树原封不动，这就是双缓冲的意义）
+    return RootIncomplete;
+  }
+  root.finishedWork = root.current.alternate;
+  root.finishedLanes = lanes;
+  workInProgress = null;
+  workInProgressRootRenderLanes = NoLanes;
+  return RootCompleted;
 }
 
 /** 同步渲染 + commit（官方 performSyncWorkOnRoot 的精简） */
@@ -122,18 +186,66 @@ function performSyncWorkOnRoot(root: FiberRootNode): void {
   }
 }
 
-/** 决定一次更新的优先级 lane（官方 requestUpdateLane，四条路径） */
+/** 决定一次更新的优先级 lane（官方 requestUpdateLane） */
 export function requestUpdateLane(_fiber: FiberNode): Lane {
-  // ① legacy mode（不含 ConcurrentMode）→ SyncLane；本仓库只做并发模式，跳过。
-  // ② 渲染期更新 → 复用当前渲染 lane；本仓库由 dispatch 端抛错拦截，跳过。
-  // ③ transition（useTransition 包裹）→ 动态申请一条 transition 泳道（第 16 章正式启用）。
+  // ③ transition（useTransition/useDeferredValue 包裹）→ 动态申请 transition 泳道 → 走并发
   const transition = ReactSharedInternals.ReactCurrentBatchConfig.transition;
   if (transition !== null) {
     return claimNextTransitionLane();
   }
-  // ④/⑤ 事件优先级 → lane：第 16 章接 getCurrentEventPriority 后按优先级选泳道；
-  // 现阶段统一回落 SyncLane（事件触发后的 setState 仍同步渲染）。
+  // ④ 显式优先级（flushSync 设 SyncLane）→ 直接用
+  if (currentUpdatePriority !== NoLane) {
+    return currentUpdatePriority;
+  }
+  // ⑤ 默认：同步泳道（事件优先级 → lane 的桥接见 README 差异表；离散事件仍走同步）
   return SyncLane;
+}
+
+/** 显式优先级工厂（flushSync 用） */
+export function getCurrentUpdatePriority(): Lane {
+  return currentUpdatePriority;
+}
+
+/** 以最高优先级同步执行 fn 并立即 flush —— 对应官方 flushSync（从 react-dom 再导出） */
+export function flushSync(fn: () => void): void {
+  const previousPriority = currentUpdatePriority;
+  currentUpdatePriority = SyncLane;
+  try {
+    fn();
+  } finally {
+    currentUpdatePriority = previousPriority;
+  }
+  flushSyncCallbacks();
+}
+
+/** 并发渲染 + commit（官方 performConcurrentWorkOnRoot；Scheduler 回调入口） */
+function performConcurrentWorkOnRoot(root: FiberRootNode, didTimeout: boolean): void {
+  const lanes = getNextLanes(root, workInProgressRootRenderLanes);
+  // 只有在"非阻塞、未过期、未超时"的情况下才切时间片；否则退回同步把这条 lane 一次性跑完
+  const shouldTimeSlice =
+    !includesBlockingLane(lanes) && !includesExpiredLane(root, lanes) && !didTimeout;
+
+  try {
+    let finishedWork: FiberNode | null = null;
+    if (shouldTimeSlice) {
+      const exitStatus = renderRootConcurrent(root, lanes);
+      finishedWork = exitStatus === RootCompleted ? root.finishedWork : null;
+    } else {
+      renderRootSync(root, lanes);
+      finishedWork = root.finishedWork;
+    }
+    if (finishedWork !== null) {
+      commitRoot(root);
+    }
+  } finally {
+    root.callbackNode = null;
+    root.callbackPriority = NoLanes;
+    resetContextStack();
+  }
+  // 还有残留 lane → 续排
+  if (root.pendingLanes !== NoLanes) {
+    ensureRootIsScheduled(root);
+  }
 }
 
 /**
@@ -163,8 +275,15 @@ function ensureRootIsScheduled(root: FiberRootNode): void {
       root.callbackNode = {}; // 占位（第 16 章换成真正 scheduler task）
     }
   } else {
-    // 并发路径：第 16 章 scheduleCallback(Scheduler, performConcurrentWorkOnRoot)
-    throw new Error('[react-reconciler] 并发调度尚未实现（第 16 章）。');
+    // 并发路径：交给 Scheduler，按优先级排队做可中断渲染（第 16 章）
+    if (root.callbackNode === null || root.callbackPriority !== newCallbackPriority) {
+      const schedulerPriority = lanesToSchedulerPriority(nextLanes);
+      const newCallbackNode = unstable_scheduleCallback(schedulerPriority, (didTimeout) =>
+        performConcurrentWorkOnRoot(root, didTimeout),
+      );
+      root.callbackPriority = newCallbackPriority;
+      root.callbackNode = newCallbackNode;
+    }
   }
 }
 

@@ -64,3 +64,11 @@ export function useCallback<T extends (...args: never[]) => unknown>(
 export function useContext<T>(context: ReactContext<T>): T {
   return resolveDispatcher().useContext(context);
 }
+
+export function useTransition(): [boolean, (callback: () => void) => void] {
+  return resolveDispatcher().useTransition();
+}
+
+export function useDeferredValue<T>(value: T): T {
+  return resolveDispatcher().useDeferredValue(value);
+}

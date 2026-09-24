@@ -22,12 +22,14 @@ export { ReactCurrentOwner } from './ReactCurrentOwner';
 export {
   useCallback,
   useContext,
+  useDeferredValue,
   useEffect,
   useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
   useState,
+  useTransition,
 } from './ReactHooks';
 
 export { createContext } from './ReactContext';

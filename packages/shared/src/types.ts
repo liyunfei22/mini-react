@@ -58,4 +58,6 @@ export interface Dispatcher {
     deps?: DependencyList | null,
   ): T;
   useContext<T>(context: ReactContext<T>): T;
+  useTransition(): [boolean, (callback: () => void) => void];
+  useDeferredValue<T>(value: T): T;
 }

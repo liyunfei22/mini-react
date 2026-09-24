@@ -26,15 +26,19 @@ import {
   resetContextDependencies,
 } from './ReactFiberNewContext';
 import { requestUpdateLane, scheduleUpdateOnFiber } from './ReactFiberWorkLoop';
+import { isSubsetOfLanes, NoLane, NoLanes } from './ReactFiberLane';
+import type { Lane, Lanes } from './ReactFiberLane';
 
 // ---- 类型（非泛型，边界断言）----
 interface Update {
+  lane: Lane;
   action: unknown;
   eagerReducer: unknown;
   eagerState: unknown;
   next: Update | null;
 }
 interface HookQueue {
+  lanes: Lanes; // 尚未消费（被跳过的）更新的 lane 位；dispatch 的 eager bailout 据此避让
   pending: Update | null;
   dispatch: Dispatch<unknown> | null;
   lastRenderedReducer: unknown;
@@ -65,6 +69,9 @@ let currentlyRenderingFiber: FiberNode | null = null;
 let workInProgressHook: Hook | null = null;
 let currentHook: Hook | null = null;
 
+// 本轮渲染的优先级 lanes：processUpdateQueue 按它过滤"这条更新该不该在本轮处理"（第 16 章并发）
+let renderLanes: Lanes = NoLanes;
+
 function basicStateReducer<S>(state: S, action: SetStateAction<S>): S {
   return typeof action === 'function' ? (action as (prev: S) => S)(state) : action;
 }
@@ -75,9 +82,11 @@ export function renderWithHooks(
   workInProgress: FiberNode,
   Component: (props: unknown, secondArg?: unknown) => unknown,
   props: unknown,
-  secondArg?: unknown,
+  secondArg: unknown,
+  nextRenderLanes: Lanes,
 ): unknown {
   currentlyRenderingFiber = workInProgress;
+  renderLanes = nextRenderLanes;
   workInProgress.memoizedState = null;
   // updateQueue 也要清零：第 9 章 effect 链表挂这里，不复位会复用旧 effect 链
   workInProgress.updateQueue = null;
@@ -176,8 +185,8 @@ function updateWorkInProgressHook(): Hook {
 }
 
 // ---- 环形 pending 队列 ----
-function enqueueUpdate(queue: HookQueue, action: unknown): void {
-  const update: Update = { action, eagerReducer: null, eagerState: null, next: null };
+function enqueueUpdate(queue: HookQueue, lane: Lane, action: unknown): void {
+  const update: Update = { lane, action, eagerReducer: null, eagerState: null, next: null };
   const pending = queue.pending;
   if (pending === null) {
     update.next = update;
@@ -206,15 +215,66 @@ function processUpdateQueue<S>(hook: Hook, reducer: ReducerFn<S>): S {
     queue.pending = null;
   }
 
+  // 本轮从零统计"被跳过"的 lane（供 eager bailout 避让）
+  queue.lanes = NoLanes;
+
   let newState = hook.baseState as S;
-  let update = hook.baseQueue;
+  if (hook.baseQueue === null) {
+    hook.memoizedState = newState;
+    queue.lastRenderedState = newState;
+    return newState;
+  }
+
+  // 按 renderLanes 过滤（官方 processUpdateQueue）：lane 不在本轮渲染内的更新"跳过"、留在新的
+  // baseQueue 里等后续优先级渲染再处理；被跳过的更新之前会补一个 NoLane 标记的克隆，保证
+  // "已经应用过的高优先级更新"在未来低优先级渲染时能基于被跳过的更新重新推导（重基准）。
+  // 显式标注 Update | null，避免 TS 在循环内把 update 收窄成非空后对 update.next 赋值报错
+  let update: Update | null = hook.baseQueue;
+  let newBaseQueueFirst: Update | null = null;
+  let newBaseQueueLast: Update | null = null;
+  let newBaseState: S | null = null;
   while (update !== null) {
-    newState = reducer(newState, update.action);
+    const updateLane = update.lane;
+    const updateAction = update.action;
+    if (!isSubsetOfLanes(renderLanes, updateLane)) {
+      // 优先级不足 → 跳过这条更新
+      const clone: Update = {
+        lane: updateLane,
+        action: updateAction,
+        eagerReducer: null,
+        eagerState: null,
+        next: null,
+      };
+      if (newBaseQueueLast === null) {
+        newBaseQueueFirst = clone;
+        newBaseState = newState; // 记录"第一个被跳过更新之前"的状态
+      } else {
+        newBaseQueueLast.next = clone;
+      }
+      newBaseQueueLast = clone;
+      queue.lanes = (queue.lanes | updateLane) as Lanes;
+    } else {
+      // 本轮处理：应用更新；若前面有被跳过的更新，则本更新的结果基于旧 base 派生，
+      // 补一个 NoLane 克隆进 baseQueue，等被跳过的更新补上后一起重算。
+      newState = reducer(newState, updateAction);
+      if (newBaseQueueLast !== null) {
+        const clone: Update = {
+          lane: NoLane,
+          action: updateAction,
+          eagerReducer: null,
+          eagerState: null,
+          next: null,
+        };
+        newBaseQueueLast.next = clone;
+        newBaseQueueLast = clone;
+      }
+    }
     update = update.next;
   }
 
-  hook.memoizedState = hook.baseState = newState;
-  hook.baseQueue = null;
+  hook.memoizedState = newState; // 本轮渲染呈现的状态（只含本轮 lanes）
+  hook.baseState = newBaseQueueLast === null ? newState : (newBaseState as S); // 未来重算的基准
+  hook.baseQueue = newBaseQueueFirst;
   queue.lastRenderedState = newState; // 供 dispatch 的 eager bailout 参考
   return newState;
 }
@@ -227,6 +287,7 @@ function mountState<S>(initialState: S | (() => S)): [S, Dispatch<SetStateAction
   }
   hook.memoizedState = hook.baseState = initialState;
   const queue: HookQueue = {
+    lanes: NoLanes,
     pending: null,
     dispatch: null,
     lastRenderedReducer: basicStateReducer,
@@ -253,6 +314,7 @@ function mountReducer<S, A>(
   const hook = mountWorkInProgressHook();
   hook.memoizedState = hook.baseState = init === undefined ? initialArg : init(initialArg);
   const queue: HookQueue = {
+    lanes: NoLanes,
     pending: null,
     dispatch: null,
     lastRenderedReducer: reducer,
@@ -286,9 +348,9 @@ function dispatchReducerAction(fiber: FiberNode, queue: HookQueue, action: unkno
       'Cannot update a component while rendering it (render-phase update). Please move the state update to an event handler or effect.',
     );
   }
-  enqueueUpdate(queue, action);
-  const root = getRootForUpdatedFiber(fiber);
   const lane = requestUpdateLane(fiber);
+  enqueueUpdate(queue, lane, action);
+  const root = getRootForUpdatedFiber(fiber);
   scheduleUpdateOnFiber(root, fiber, lane);
 }
 
@@ -296,7 +358,7 @@ function dispatchSetState<S>(fiber: FiberNode, queue: HookQueue, action: SetStat
   // eager bailout（官方 dispatchSetState 专属）：useState 的内置 reducer 是已知纯函数，
   // 队列为空时先试算 next state，Object.is 相同则直接从源头跳过调度（"设相同值不重渲染"）。
   const lastRenderedReducer = queue.lastRenderedReducer as ReducerFn<unknown> | null;
-  if (lastRenderedReducer !== null && queue.pending === null) {
+  if (lastRenderedReducer !== null && queue.pending === null && queue.lanes === NoLanes) {
     let eagerState: unknown;
     try {
       eagerState = lastRenderedReducer(queue.lastRenderedState, action);
@@ -406,6 +468,68 @@ function mountEffect(create: Effect['create'], deps: unknown[] | null): void {
 function updateEffect(create: Effect['create'], deps: unknown[] | null): void {
   return updateEffectImpl(PassiveFlag, HookPassive, create, deps);
 }
+// ---- 并发 hooks（第 16 章）----
+function mountTransition(): [boolean, (callback: () => void) => void] {
+  const [isPending, setPending] = mountState(false);
+  const start = (callback: () => void): void => {
+    const previousTransition = ReactSharedInternals.ReactCurrentBatchConfig.transition;
+    ReactSharedInternals.ReactCurrentBatchConfig.transition = { name: 'startTransition' };
+    setPending(true);
+    try {
+      callback(); // 里面的 setState 会命中 transition lane（claimNextTransitionLane）
+    } finally {
+      ReactSharedInternals.ReactCurrentBatchConfig.transition = previousTransition;
+      // 简化：同步结束后置回 false（官方在过渡渲染 commit 后才清 pending；见文章差异表）
+      setPending(false);
+    }
+  };
+  return [isPending, start];
+}
+
+function updateTransition(): [boolean, (callback: () => void) => void] {
+  const [isPending, setPending] = updateState(false);
+  const start = (callback: () => void): void => {
+    const previousTransition = ReactSharedInternals.ReactCurrentBatchConfig.transition;
+    ReactSharedInternals.ReactCurrentBatchConfig.transition = { name: 'startTransition' };
+    setPending(true);
+    try {
+      callback();
+    } finally {
+      ReactSharedInternals.ReactCurrentBatchConfig.transition = previousTransition;
+      setPending(false);
+    }
+  };
+  return [isPending, start];
+}
+
+function mountDeferredValue<T>(value: T): T {
+  const [deferred, setDeferred] = mountState(value);
+  mountEffect(() => {
+    const previousTransition = ReactSharedInternals.ReactCurrentBatchConfig.transition;
+    ReactSharedInternals.ReactCurrentBatchConfig.transition = { name: 'useDeferredValue' };
+    try {
+      setDeferred(value); // 延迟更新走 transition lane
+    } finally {
+      ReactSharedInternals.ReactCurrentBatchConfig.transition = previousTransition;
+    }
+  }, [value]);
+  return deferred;
+}
+
+function updateDeferredValue<T>(value: T): T {
+  const [deferred, setDeferred] = updateState(value);
+  updateEffect(() => {
+    const previousTransition = ReactSharedInternals.ReactCurrentBatchConfig.transition;
+    ReactSharedInternals.ReactCurrentBatchConfig.transition = { name: 'useDeferredValue' };
+    try {
+      setDeferred(value);
+    } finally {
+      ReactSharedInternals.ReactCurrentBatchConfig.transition = previousTransition;
+    }
+  }, [value]);
+  return deferred;
+}
+
 function mountLayoutEffect(create: Effect['create'], deps: unknown[] | null): void {
   return mountEffectImpl(UpdateFlag | LayoutStatic, HookLayout, create, deps);
 }
@@ -479,6 +603,8 @@ const HooksDispatcherOnMount: Dispatcher = {
   useMemo: mountMemo,
   useCallback: mountCallback,
   useContext: readContext,
+  useTransition: mountTransition,
+  useDeferredValue: mountDeferredValue,
 };
 
 const HooksDispatcherOnUpdate: Dispatcher = {
@@ -490,4 +616,6 @@ const HooksDispatcherOnUpdate: Dispatcher = {
   useMemo: updateMemo,
   useCallback: updateCallback,
   useContext: readContext,
+  useTransition: updateTransition,
+  useDeferredValue: updateDeferredValue,
 };
