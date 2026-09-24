@@ -2,11 +2,11 @@
 title: React 源码解析 15：Lane 模型——优先级怎么编码进一个 31 位数里
 summary: React 怎么用一个 number 同时表达"有哪几种优先级的活要干"？拆开 31 位泳道表：SyncLane/DefaultLane/TransitionLanes 的位值、位运算工具、getNextLanes 如何排除 suspended、以及 markStarvedLanesAsExpired 的饥饿保护为何是低优先级任务不被饿死的保证。
 tags: [前端, React, 源码分析, 并发, 算法]
-cover: https://cdn.jsdelivr.net/gh/<你的GitHub用户名>/mini-react@main/articles/15-lanes/assets/cover.png
+cover: https://cdn.jsdelivr.net/gh/liyunfei22/mini-react@main/articles/15-lanes/assets/cover.png
 date: 2026-09-24
 series: mini-react 源码解析
 seriesIndex: 15
-originalSource: https://github.com/<你的GitHub用户名>/mini-react
+originalSource: https://github.com/liyunfei22/mini-react
 draft: true
 ---
 

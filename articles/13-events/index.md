@@ -2,11 +2,11 @@
 title: React 源码解析 13：合成事件系统——为什么 React 不在每个 DOM 上绑事件
 summary: 一个列表一万个 li，React 也只在根容器绑一次事件。拆开看：根委托的 attachRootListeners、沿 target→root 路径收集 onXxx 的捕获/冒泡派发、SyntheticEvent 的 stopPropagation 标记，以及事件类型到优先级（discrete/continuous/default）的映射如何为调度铺路。
 tags: [前端, React, 源码分析, 事件]
-cover: https://cdn.jsdelivr.net/gh/<你的GitHub用户名>/mini-react@main/articles/13-events/assets/cover.png
+cover: https://cdn.jsdelivr.net/gh/liyunfei22/mini-react@main/articles/13-events/assets/cover.png
 date: 2026-09-23
 series: mini-react 源码解析
 seriesIndex: 13
-originalSource: https://github.com/<你的GitHub用户名>/mini-react
+originalSource: https://github.com/liyunfei22/mini-react
 draft: true
 ---
 

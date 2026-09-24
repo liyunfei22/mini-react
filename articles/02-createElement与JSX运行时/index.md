@@ -2,11 +2,11 @@
 title: React 源码解析 02：createElement 与 JSX 运行时——虚拟 DOM 的诞生
 summary: createElement 到底做了哪三件事、ReactElement 为什么用 Symbol.for 标识、key/ref 如何从 config 剥离、JSX 自动运行时（jsx/jsxs/jsxDEV）与经典 createElement 的双轨关系。附手写 mini-render 让元素树真实渲染。
 tags: [前端, React, 源码分析]
-cover: https://cdn.jsdelivr.net/gh/<你的GitHub用户名>/mini-react@main/articles/02-createElement与JSX运行时/assets/cover.png
+cover: https://cdn.jsdelivr.net/gh/liyunfei22/mini-react@main/articles/02-createElement与JSX运行时/assets/cover.png
 date: 2026-09-21
 series: mini-react 源码解析
 seriesIndex: 2
-originalSource: https://github.com/<你的GitHub用户名>/mini-react
+originalSource: https://github.com/liyunfei22/mini-react
 draft: true
 ---
 

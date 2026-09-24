@@ -2,11 +2,11 @@
 title: React 源码解析 07：setState 之后的调度——requestUpdateLane 与 ensureRootIsScheduled
 summary: 一次 dispatch 到底做了什么才让 React 重新渲染？拆开调度中枢：requestUpdateLane 定优先级、markRootUpdated 打标、ensureRootIsScheduled 按"是否同步 lane"分派到同步或并发路径，以及它为什么用 callbackNode 而不是 lane 位来判断"是否已调度"。
 tags: [前端, React, 源码分析, 调度]
-cover: https://cdn.jsdelivr.net/gh/<你的GitHub用户名>/mini-react@main/articles/07-scheduling/assets/cover.png
+cover: https://cdn.jsdelivr.net/gh/liyunfei22/mini-react@main/articles/07-scheduling/assets/cover.png
 date: 2026-09-22
 series: mini-react 源码解析
 seriesIndex: 7
-originalSource: https://github.com/<你的GitHub用户名>/mini-react
+originalSource: https://github.com/liyunfei22/mini-react
 draft: true
 ---
 

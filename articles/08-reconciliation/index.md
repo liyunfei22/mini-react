@@ -2,11 +2,11 @@
 title: React 源码解析 08：Diff 的 key 心智模型——lastPlacedIndex 如何判断"复用"还是"移动"
 summary: key 为什么能让列表复用而不是重建？拆开数组 diff：第一趟位置匹配、break 进入 keyed map 阶段、placeChild 里 oldIndex 与 lastPlacedIndex 的一次比较如何决定一个节点该留在原地、移动还是插入，以及 commit 阶段怎么用 getHostSibling 把它插到正确的位置。
 tags: [前端, React, 源码分析, Diff, 算法]
-cover: https://cdn.jsdelivr.net/gh/<你的GitHub用户名>/mini-react@main/articles/08-reconciliation/assets/cover.png
+cover: https://cdn.jsdelivr.net/gh/liyunfei22/mini-react@main/articles/08-reconciliation/assets/cover.png
 date: 2026-09-23
 series: mini-react 源码解析
 seriesIndex: 8
-originalSource: https://github.com/<你的GitHub用户名>/mini-react
+originalSource: https://github.com/liyunfei22/mini-react
 draft: true
 ---
 

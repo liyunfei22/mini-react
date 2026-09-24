@@ -2,11 +2,11 @@
 title: React 源码解析 03：Fiber 数据结构——为什么 React 用链表代替递归，以及双缓冲的妙处
 summary: 递归渲染为什么在 React 18 里被判了死刑？Fiber 的 child/sibling/return 三指针如何让遍历可中断、可恢复；current 与 workInProgress 两棵树互为 alternate 的双缓冲，如何一边渲染一边让屏幕保持稳定。
 tags: [前端, React, 源码分析, Fiber, 算法]
-cover: https://cdn.jsdelivr.net/gh/<你的GitHub用户名>/mini-react@main/articles/03-fiber-data-structure/assets/cover.png
+cover: https://cdn.jsdelivr.net/gh/liyunfei22/mini-react@main/articles/03-fiber-data-structure/assets/cover.png
 date: 2026-09-22
 series: mini-react 源码解析
 seriesIndex: 3
-originalSource: https://github.com/<你的GitHub用户名>/mini-react
+originalSource: https://github.com/liyunfei22/mini-react
 draft: true
 ---
 

@@ -2,11 +2,11 @@
 title: React 源码解析 11：Context 的 valueCursor——值如何沿 Fiber 树入栈出栈
 summary: Provider 的值怎么让子树里的组件读到、又如何精确恢复？拆开 valueCursor 全局栈、pushProvider/popProvider 的入栈出栈、readContext 如何把一次消费记进 fiber.dependencies，以及"间隔的 Provider 不重渲染"为什么靠的是一条依赖链表。
 tags: [前端, React, 源码分析, Context]
-cover: https://cdn.jsdelivr.net/gh/<你的GitHub用户名>/mini-react@main/articles/11-context/assets/cover.png
+cover: https://cdn.jsdelivr.net/gh/liyunfei22/mini-react@main/articles/11-context/assets/cover.png
 date: 2026-09-23
 series: mini-react 源码解析
 seriesIndex: 11
-originalSource: https://github.com/<你的GitHub用户名>/mini-react
+originalSource: https://github.com/liyunfei22/mini-react
 draft: true
 ---
 

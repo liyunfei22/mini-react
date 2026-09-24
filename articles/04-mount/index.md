@@ -2,11 +2,11 @@
 title: React 源码解析 04：首屏挂载——递归渲染如何变成一趟可遍历的 Fiber 游标
 summary: 从 createRoot().render() 一路走到真实 DOM：workLoopSync 怎么用一个游标替代递归、beginWork 怎么把 element 变成 fiber 子树、completeWork 怎么自底向上造 DOM 实例、commit 又怎么一次性把整棵树插进容器。
 tags: [前端, React, 源码分析, Fiber]
-cover: https://cdn.jsdelivr.net/gh/<你的GitHub用户名>/mini-react@main/articles/04-mount/assets/cover.png
+cover: https://cdn.jsdelivr.net/gh/liyunfei22/mini-react@main/articles/04-mount/assets/cover.png
 date: 2026-09-22
 series: mini-react 源码解析
 seriesIndex: 4
-originalSource: https://github.com/<你的GitHub用户名>/mini-react
+originalSource: https://github.com/liyunfei22/mini-react
 draft: true
 ---
 

@@ -2,11 +2,11 @@
 title: React 源码解析 00：为什么读 React 源码，以及这套专栏要带你做什么
 summary: 一套专栏的总说明：为什么手写 React、学习路径怎么排、仓库如何组织、怎么用「对照阅读法」把官方源码与自研实现逐行互相对着看。
 tags: [前端, React, 源码分析]
-cover: https://cdn.jsdelivr.net/gh/<你的GitHub用户名>/mini-react@main/articles/00-系列导读/assets/cover.png
+cover: https://cdn.jsdelivr.net/gh/liyunfei22/mini-react@main/articles/00-系列导读/assets/cover.png
 date: 2026-09-21
 series: mini-react 源码解析
 seriesIndex: 0
-originalSource: https://github.com/<你的GitHub用户名>/mini-react
+originalSource: https://github.com/liyunfei22/mini-react
 draft: true
 ---
 

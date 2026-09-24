@@ -2,11 +2,11 @@
 title: React 源码解析 01：React 是怎么打包的——还原 scripts/rollup 式构建脚手架
 summary: 官方 React 仓库并没有"每个包一个配置文件"，而是一张声明式打包矩阵 × 三重循环。本篇复刻这套构建体系：__DEV__ 构建期替换、dev/prod 双产物、esm/cjs/umd 三格式，以及 React 怎么保证跨 bundle 单例。
 tags: [前端, React, 源码分析, 构建工具, Rollup]
-cover: https://cdn.jsdelivr.net/gh/<你的GitHub用户名>/mini-react@main/articles/01-从零搭建React式构建脚手架/assets/cover.png
+cover: https://cdn.jsdelivr.net/gh/liyunfei22/mini-react@main/articles/01-从零搭建React式构建脚手架/assets/cover.png
 date: 2026-09-21
 series: mini-react 源码解析
 seriesIndex: 1
-originalSource: https://github.com/<你的GitHub用户名>/mini-react
+originalSource: https://github.com/liyunfei22/mini-react
 draft: true
 ---
 

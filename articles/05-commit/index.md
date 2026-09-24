@@ -2,11 +2,11 @@
 title: React 源码解析 05：commit 三阶段——为什么要在 Mutation 之后、Layout 之前换树
 summary: 从"只能挂载一次"到"能更新/删除"：render 描述了改动，commit 才把它落到 DOM；BeforeMutation/Mutation/Layout 三段各自的职责、root.current 的交换时机这一行代码为什么放那里，以及 diff 复用与删除是怎么用 flags 和 deletions 列表表达的。
 tags: [前端, React, 源码分析, DOM]
-cover: https://cdn.jsdelivr.net/gh/<你的GitHub用户名>/mini-react@main/articles/05-commit/assets/cover.png
+cover: https://cdn.jsdelivr.net/gh/liyunfei22/mini-react@main/articles/05-commit/assets/cover.png
 date: 2026-09-22
 series: mini-react 源码解析
 seriesIndex: 5
-originalSource: https://github.com/<你的GitHub用户名>/mini-react
+originalSource: https://github.com/liyunfei22/mini-react
 draft: true
 ---
 

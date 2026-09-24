@@ -2,11 +2,11 @@
 title: React 源码解析 12：ref 与 forwardRef——attachRef 为什么在布局阶段而不是挂在 DOM 那一步
 summary: 一个 ref 盒子怎么在 commit 结束时被填上 DOM 节点？answer 是：mutation 阶段先 detach 旧 ref、layout 阶段再 attach 新 ref；而 forwardRef 只是把 ref 当作 render 的第二个参数透传下去。顺带讲了"每一个新 fiber tag 都要在 beginWork/completeWork/commit 三处同步接上"这个反复出现的坑。
 tags: [前端, React, 源码分析, Refs]
-cover: https://cdn.jsdelivr.net/gh/<你的GitHub用户名>/mini-react@main/articles/12-refs/assets/cover.png
+cover: https://cdn.jsdelivr.net/gh/liyunfei22/mini-react@main/articles/12-refs/assets/cover.png
 date: 2026-09-23
 series: mini-react 源码解析
 seriesIndex: 12
-originalSource: https://github.com/<你的GitHub用户名>/mini-react
+originalSource: https://github.com/liyunfei22/mini-react
 draft: true
 ---
 

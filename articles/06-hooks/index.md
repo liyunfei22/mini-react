@@ -2,11 +2,11 @@
 title: React 源码解析 06：useState 为什么只是个"读 dispatcher 的函数"——hooks 运行时拆解
 summary: useState 一行实现都没有，却能凭空变出状态？拆开看：ReactCurrentDispatcher 的双实现切换、按调用顺序串成的 hook 链表、dispatch 的环形 pending 队列与 eager bailout，以及这一切如何拼出"setState 相同值不重渲染"。
 tags: [前端, React, 源码分析, Hooks]
-cover: https://cdn.jsdelivr.net/gh/<你的GitHub用户名>/mini-react@main/articles/06-hooks/assets/cover.png
+cover: https://cdn.jsdelivr.net/gh/liyunfei22/mini-react@main/articles/06-hooks/assets/cover.png
 date: 2026-09-22
 series: mini-react 源码解析
 seriesIndex: 6
-originalSource: https://github.com/<你的GitHub用户名>/mini-react
+originalSource: https://github.com/liyunfei22/mini-react
 draft: true
 ---
 

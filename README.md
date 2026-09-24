@@ -88,10 +88,10 @@ apps/playground ─▶ @mini-react/react / react-dom（仅 apps 层可 import re
 | 03    | Fiber 数据结构与双缓冲                               | ✅ 已完成                             |
 | 04    | 首屏挂载全链路：render(workLoopSync)                 | ✅ 已完成                             |
 | 05    | 提交阶段 commitRoot                                  | ✅ 已完成                             |
-| 06~10 | Hooks 全家桶                                         | 🚧 06 完成（useState/useReducer）     |
-| 11~13 | Context / refs / 合成事件                            | 🕐 未开始                             |
+| 06~10 | Hooks 全家桶                                         | ✅ 全部完成                           |
+| 11~13 | Context / refs / 合成事件                            | ✅ 全部完成                           |
 | 14~16 | Scheduler / Lane / 并发升级                          | ✅ 全部完成                           |
-| 17    | 发布打磨与全链复盘                                   | 🕐 未开始                             |
+| 17    | 发布打磨与全链复盘                                   | ✅ 已完成                             |
 
 > 进度事实源：`articles/README.md`。新增篇章用 `pnpm article:new`（`node tools/new-article.mjs NN slug 标题`）。
 
@@ -111,15 +111,12 @@ pnpm article:juejin     # 发布辅助：剥 frontmatter + 校验图片 + 打清
 
 - 每章一个 commit；`main` 分支保持 `pnpm check` 全绿。
 - 脚手架（打包体系）即 `scripts/`；`dist/`、`dist-types/`、`node_modules/` 不入库。
-- **预留给 GitHub**：本仓库计划推送到 GitHub，作为掘金文章的：
-  - `原文地址`（frontmatter 的 `originalSource`）；
-  - 图片图床（jsDelivr：`cdn.jsdelivr.net/gh/<user>/mini-react@main/articles/.../assets/xxx.png`）。
-    推送到 GitHub 后执行：
+- **发布到 GitHub**：frontmatter 的 `originalSource` 与 18 张封面图床都已填 `liyunfei22`，推送到 GitHub 后即生效：
   ```bash
-  git remote add origin git@github.com:<你的GitHub用户名>/mini-react.git
+  git remote add origin git@github.com:liyunfei22/mini-react.git
   git push -u origin main
   ```
-  然后把 frontmatter 与图片路径里的 `<你的GitHub用户名>` 替换为真实用户名。
+  封面图走 jsDelivr（`cdn.jsdelivr.net/gh/liyunfei22/mini-react@main/articles/NN-*/assets/cover.png`），推送后即可当掘金封面外链。
 
 ## 学习顺序建议
 

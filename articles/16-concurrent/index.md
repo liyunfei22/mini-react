@@ -2,11 +2,11 @@
 title: React 源码解析 16：并发渲染——把 Scheduler、Lane、useTransition 接成一台可中断的机器
 summary: 前 15 章装好的零件终于在这一章组装起来：ensureRootIsScheduled 的并发分支把 non-sync lane 交给 Scheduler、workLoopConcurrent 每个工作单元都问 shouldYield、startTransition 让更新走 transition 泳道异步渲染。到这一刻，mini-react 的渲染才真正可中断。
 tags: [前端, React, 源码分析, 并发]
-cover: https://cdn.jsdelivr.net/gh/<你的GitHub用户名>/mini-react@main/articles/16-concurrent/assets/cover.png
+cover: https://cdn.jsdelivr.net/gh/liyunfei22/mini-react@main/articles/16-concurrent/assets/cover.png
 date: 2026-09-24
 series: mini-react 源码解析
 seriesIndex: 16
-originalSource: https://github.com/<你的GitHub用户名>/mini-react
+originalSource: https://github.com/liyunfei22/mini-react
 draft: true
 ---
 

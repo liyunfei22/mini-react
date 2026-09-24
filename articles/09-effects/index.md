@@ -2,11 +2,11 @@
 title: React 源码解析 09：useEffect/useLayoutEffect——副作用链表与两种提交时机
 summary: useEffect 为什么在 paint 之后、useLayoutEffect 为什么在 commit 里同步跑？拆开 effect 链表：pushEffect 的环形 lastEffect、HasEffect 位如何编码"deps 变化"、cleanup 为何先于下一次 create 执行，以及卸载时副作用如何清理。
 tags: [前端, React, 源码分析, Hooks]
-cover: https://cdn.jsdelivr.net/gh/<你的GitHub用户名>/mini-react@main/articles/09-effects/assets/cover.png
+cover: https://cdn.jsdelivr.net/gh/liyunfei22/mini-react@main/articles/09-effects/assets/cover.png
 date: 2026-09-23
 series: mini-react 源码解析
 seriesIndex: 9
-originalSource: https://github.com/<你的GitHub用户名>/mini-react
+originalSource: https://github.com/liyunfei22/mini-react
 draft: true
 ---
 

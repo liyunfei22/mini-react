@@ -2,11 +2,11 @@
 title: React 源码解析 14：Scheduler——5ms 一片的时间切片是怎么切出来的
 summary: React 怎么能一边渲染一边不卡住浏览器？拆开 scheduler 包：MessageChannel 驱动的任务循环、sortIndex 最小堆、delay 定时堆、以及每片 5ms 帧预算的 shouldYield——理解了它，就理解了"可中断渲染"的地基。
 tags: [前端, React, 源码分析, 调度, 并发]
-cover: https://cdn.jsdelivr.net/gh/<你的GitHub用户名>/mini-react@main/articles/14-scheduler/assets/cover.png
+cover: https://cdn.jsdelivr.net/gh/liyunfei22/mini-react@main/articles/14-scheduler/assets/cover.png
 date: 2026-09-24
 series: mini-react 源码解析
 seriesIndex: 14
-originalSource: https://github.com/<你的GitHub用户名>/mini-react
+originalSource: https://github.com/liyunfei22/mini-react
 draft: true
 ---
 

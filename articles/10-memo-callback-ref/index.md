@@ -2,11 +2,11 @@
 title: React 源码解析 10：useMemo/useCallback/useRef——三个 hook，一种套路
 summary: 三个 hook 的实现短到令人发指，却共用同一个心智模型：把东西"记忆"到 hook.memoizedState，deps 没变就直接返回旧值。拆开看它们各自"记忆"的是什么——一个值、一个函数、还是一个 {current} 对象。
 tags: [前端, React, 源码分析, Hooks]
-cover: https://cdn.jsdelivr.net/gh/<你的GitHub用户名>/mini-react@main/articles/10-memo-callback-ref/assets/cover.png
+cover: https://cdn.jsdelivr.net/gh/liyunfei22/mini-react@main/articles/10-memo-callback-ref/assets/cover.png
 date: 2026-09-23
 series: mini-react 源码解析
 seriesIndex: 10
-originalSource: https://github.com/<你的GitHub用户名>/mini-react
+originalSource: https://github.com/liyunfei22/mini-react
 draft: true
 ---
 
