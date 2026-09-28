@@ -21,6 +21,7 @@ export {
   REACT_FORWARD_REF_TYPE,
   REACT_FRAGMENT_TYPE,
   REACT_PROVIDER_TYPE,
+  REACT_SUSPENSE_TYPE,
 } from './ReactSymbols';
 
 // 总线单例（注册于 globalThis，全应用只此一份；reconciler 与 react 都从这拿）

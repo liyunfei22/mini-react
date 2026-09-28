@@ -26,6 +26,7 @@ export const Passive: Flags = /*                                 */ 0b0000000000
 export const Hydrating: Flags = /*                               */ 0b00000000000001000000000000; // 4096 SSR 水合（mini 版未用）
 export const Visibility: Flags = /*                              */ 0b00000000000010000000000000; // 8192 Offscreen（mini 版未用）
 export const StoreConsistency: Flags = /*                        */ 0b00000000000100000000000000; // 16384 Suspense 快照（mini 版未用）
+export const ShouldCapture: Flags = /*                          */ 0b00000000001000000000000000; // 32768 本轮挂起：渲染 fallback（第 19 章）
 
 // ---- 阶段掩码：commit 各阶段只关心与自己相关的 flags ----
 export const MutationMask: Flags =

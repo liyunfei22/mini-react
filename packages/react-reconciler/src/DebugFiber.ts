@@ -11,6 +11,7 @@ import {
   HostRoot,
   HostText,
   IndeterminateComponent,
+  SuspenseComponent,
 } from './ReactWorkTags';
 
 const TAG_NAMES: Record<number, string> = {
@@ -22,6 +23,7 @@ const TAG_NAMES: Record<number, string> = {
   [HostText]: 'HostText',
   [Fragment]: 'Fragment',
   [ForwardRef]: 'ForwardRef',
+  [SuspenseComponent]: 'SuspenseComponent',
 };
 
 /** 把 fiber 子树格式化成缩进文本（每个节点一行：tag<type> + lanes） */

@@ -35,6 +35,7 @@ export {
 export { createContext } from './ReactContext';
 export { createRef } from './ReactCreateRef';
 export { forwardRef } from './ReactForwardRef';
+export { Suspense } from './ReactSuspense';
 
 // 内部单例：react-dom 的 dist 从这里拿 ReactSharedInternals（hooks 章节开始使用）。
 // 命名对齐官方 __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED。

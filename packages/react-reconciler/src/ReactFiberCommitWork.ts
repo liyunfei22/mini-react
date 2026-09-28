@@ -6,7 +6,7 @@
 import { hostConfig } from './HostConfig';
 import type { FiberNode } from './ReactFiber';
 import { LayoutMask, MutationMask, PassiveMask, Placement, Ref, Update } from './ReactFiberFlags';
-import { markRootFinished, NoLanes, removeLanes } from './ReactFiberLane';
+import { markRootFinished, mergeLanes, NoLanes, removeLanes } from './ReactFiberLane';
 import type { FiberRootNode } from './ReactFiberRoot';
 import {
   HasEffect as HookHasEffect,
@@ -25,6 +25,7 @@ import {
   HostRoot,
   HostText,
   IndeterminateComponent,
+  SuspenseComponent,
 } from './ReactWorkTags';
 
 export function commitRoot(root: FiberRootNode): void {
@@ -41,7 +42,15 @@ function commitRootImpl(root: FiberRootNode): void {
   root.finishedLanes = NoLanes;
   // 按官方 markRootFinished 清账：pendingLanes 收敛为剩余 lane，并清理
   // 已提交 lane 的 eventTimes/expirationTimes，expiredLanes 收敛到剩余 lane（防只增不减）。
-  markRootFinished(root, removeLanes(root.pendingLanes, lanes));
+  // Suspense 特殊：仍挂起的 lane 不能从 pendingLanes 抹掉（否则 wake 的 ping 就无 target），
+  // 所以把它加回 remainingLanes，并在 markRootFinished 清掉 suspendedLanes 之后恢复（第 19 章）。
+  const remainingLanes = mergeLanes(
+    removeLanes(root.pendingLanes, lanes),
+    root.suspendedLanes & lanes,
+  );
+  const suspendedLanes = root.suspendedLanes;
+  markRootFinished(root, remainingLanes);
+  root.suspendedLanes = suspendedLanes & root.pendingLanes;
 
   // 阶段一 beforeMutation：类组件 getSnapshotBeforeUpdate / passive 卸载（第 9 章补实现）
   commitBeforeMutationEffects(root, finishedWork);
@@ -269,7 +278,9 @@ function commitMutationEffectsOnFiber(finishedWork: FiberNode, root: FiberRootNo
     case ForwardRef:
     case Fragment:
     case ContextProvider:
-    case ContextConsumer: {
+    case ContextConsumer:
+    case SuspenseComponent: {
+      // SuspenseComponent 与 Fragment 同理：无 host 实例，但要递归遍历子树去提交 fallback/primary 的 Placement
       recursivelyTraverseMutationEffects(root, finishedWork);
       commitReconciliationEffects(finishedWork);
       if ((flags & Update) !== 0) {

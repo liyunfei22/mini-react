@@ -10,6 +10,7 @@ import {
   REACT_FORWARD_REF_TYPE,
   REACT_FRAGMENT_TYPE,
   REACT_PROVIDER_TYPE,
+  REACT_SUSPENSE_TYPE,
 } from '@mini-react/shared';
 import { NoFlags, StaticMask } from './ReactFiberFlags';
 import type { Flags } from './ReactFiberFlags';
@@ -25,6 +26,7 @@ import {
   HostRoot,
   HostText,
   IndeterminateComponent,
+  SuspenseComponent,
 } from './ReactWorkTags';
 
 export type FiberMode = number;
@@ -129,6 +131,8 @@ export function createFiberFromTypeAndProps(
     fiberTag = HostComponent; // 'div' / 'span' ...
   } else if (type === REACT_FRAGMENT_TYPE) {
     fiberTag = Fragment; // <>...</> 的分组节点
+  } else if (type === REACT_SUSPENSE_TYPE) {
+    fiberTag = SuspenseComponent; // <Suspense>（第 19 章）
   } else if (
     typeof type === 'object' &&
     type !== null &&

@@ -3,6 +3,7 @@
 // workLoop 就靠"返回 child / 进 complete"来决定游标去向。
 import type { ReactContext } from '@mini-react/shared';
 import { cloneChildFibers, mountChildFibers, reconcileChildFibers } from './ReactChildFiber';
+import { ChildDeletion, DidCapture, NoFlags, ShouldCapture } from './ReactFiberFlags';
 import type { FiberNode } from './ReactFiber';
 import { renderWithHooks } from './ReactFiberHooks';
 import type { Lanes } from './ReactFiberLane';
@@ -18,6 +19,7 @@ import {
   HostRoot,
   HostText,
   IndeterminateComponent,
+  SuspenseComponent,
 } from './ReactWorkTags';
 
 /**
@@ -113,6 +115,35 @@ function updateHostComponent(
 }
 
 /**
+ * Suspense 边界（官方 updateSuspenseComponent 的 mini 版，legacy 风格）。
+ * ShouldCapture 命中 → 渲染 fallback；否则渲染 primary children。
+ * 差异：官方把 primary 隐藏在 Offscreen fragment 里保留（resolve 后原地复活），
+ * mini 丢弃挂起子树、resolve 后从头重渲染 children（见第 19 章差异表）。
+ */
+function updateSuspenseComponent(
+  current: FiberNode | null,
+  workInProgress: FiberNode,
+  renderLanes: Lanes,
+): FiberNode | null {
+  const nextProps = (workInProgress.pendingProps ?? {}) as {
+    children?: unknown;
+    fallback?: unknown;
+  };
+  if ((workInProgress.flags & ShouldCapture) !== NoFlags) {
+    workInProgress.flags &= ~ShouldCapture;
+    workInProgress.flags |= DidCapture; // 已捕获：commit 无需隐藏子树（mini 直接丢弃）
+    // 主路径已经 reconcile 过一次 primary（可能对 current.child 记过 deletions）；
+    // 回卷后以 current.child 为基准重 reconcile，必须先把那份删除账清掉，否则同节点会被删两次。
+    workInProgress.deletions = null;
+    workInProgress.flags &= ~ChildDeletion;
+    reconcileChildren(current, workInProgress, nextProps.fallback ?? null, renderLanes);
+  } else {
+    reconcileChildren(current, workInProgress, nextProps.children ?? null, renderLanes);
+  }
+  return workInProgress.child;
+}
+
+/**
  * 是否有待处理的更新/context（官方 checkScheduledUpdateOrContext）。
  * 只查「自己身上的 lane」——fiber.lanes 由 markUpdateLaneFromFiberToRoot 在调度时点燃、
  * 真正渲染时清零，所以它为真意味着「本轮 renderLanes 里有这个 fiber 自己没过期的活」。
@@ -183,7 +214,10 @@ export function beginWork(
     const propsChanged = oldProps !== newProps;
     if (!propsChanged) {
       const hasScheduledUpdateOrContext = checkScheduledUpdateOrContext(current, renderLanes);
-      if (!hasScheduledUpdateOrContext) {
+      // 二段渲染守卫（第 19 章）：Suspense 边界被打上 ShouldCapture 后，即使 lanes 已清、
+      // props 没变也要放行到 updateSuspenseComponent 去渲染 fallback，不能早退掉。
+      const isSuspenseSecondPass = (workInProgress.flags & ShouldCapture) !== NoFlags;
+      if (!hasScheduledUpdateOrContext && !isSuspenseSecondPass) {
         return attemptEarlyBailoutIfNoScheduledUpdate(current, workInProgress, renderLanes);
       }
     }
@@ -221,6 +255,8 @@ export function beginWork(
     }
     case ContextProvider:
       return updateContextProvider(current, workInProgress, renderLanes);
+    case SuspenseComponent:
+      return updateSuspenseComponent(current, workInProgress, renderLanes);
     case ContextConsumer:
       // render-prop Consumer（<Ctx.Consumer>{v => ...}）在 mini 版未实现；只支持 Provider + useContext
       throw new Error('[react-reconciler] render-prop Consumer 未支持，请用 useContext。');

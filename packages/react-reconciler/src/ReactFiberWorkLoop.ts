@@ -17,6 +17,8 @@ import {
 import { commitRoot } from './ReactFiberCommitWork';
 import { createWorkInProgress } from './ReactFiber';
 import { resetContextStack } from './ReactFiberNewContext';
+import { ShouldCapture } from './ReactFiberFlags';
+import { SuspenseComponent } from './ReactWorkTags';
 import type { FiberNode } from './ReactFiber';
 import {
   claimNextTransitionLane,
@@ -30,6 +32,8 @@ import {
   includesSyncLane,
   InputContinuousHydrationLane,
   InputContinuousLane,
+  markRootPinged,
+  markRootSuspended,
   markRootUpdated as markRootUpdatedLane,
   markStarvedLanesAsExpired,
   mergeLanes,
@@ -57,11 +61,64 @@ let workInProgressRootRenderLanes: Lanes = NoLanes;
 // 当前"显式优先级"（flushSync 设 SyncLane；第 16 章 requestUpdateLane 读它）
 let currentUpdatePriority: Lane = NoLane;
 
+// 本轮渲染是否发生挂起（Suspense thenable throw）——驱动 renderRoot 收尾与 commit 记账分叉
+let workInProgressRootDidSuspend = false;
+
 const RootIncomplete = 0;
 const RootCompleted = 2;
 
+/** 是否为 thenable（有 .then 的可挂起对象）——官方 isThenable 的 mini 版 */
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return (
+    value !== null &&
+    (typeof value === 'object' || typeof value === 'function') &&
+    typeof (value as { then?: unknown }).then === 'function'
+  );
+}
+
+/**
+ * 处理一次 render 中的 thenable 抛掷（官方 handleError/throwException 的 mini 版，legacy 风格）：
+ * 沿 return 链找最近的 Suspense 边界 → markRootSuspended → 注册 wake（resolve 后重燃 lane + ping）
+ * → 给边界打 ShouldCapture → 回卷 workInProgress 到边界，让它这一轮渲染 fallback。
+ * 返回 false 表示「不是 thenable / 无边界」——由调用方决定是否 rethrow（mini 无错误边界）。
+ */
+function handleThenableThrow(root: FiberRootNode, thrownValue: unknown, lanes: Lanes): boolean {
+  if (!isThenable(thrownValue)) {
+    return false;
+  }
+  let boundary: FiberNode | null = workInProgress;
+  while (boundary !== null && boundary.tag !== SuspenseComponent) {
+    boundary = boundary.return;
+  }
+  if (boundary === null) {
+    return false; // 没有 Suspense 边界可承接：抛回给用户（对 true error 的模拟）
+  }
+
+  workInProgressRootDidSuspend = true;
+  markRootSuspended(root, lanes);
+
+  // mini 简化：挂起后丢弃 suspended 子树（无 Offscreen 保留），边界渲染 fallback，
+  // promise resolve 后从头重渲染 primary（差异见文章）。
+  boundary.flags |= ShouldCapture;
+
+  let didWake = false;
+  const wake = (): void => {
+    if (didWake) return;
+    didWake = true;
+    // null 守卫（TS 收窄）：boundary 在此一定非 null
+    markUpdateLaneFromFiberToRoot(boundary!, lanes); // 重燃 lane：让边界渲染 primary 而非继续 bailout
+    markRootPinged(root, lanes); // 该 lane 现在可被 getNextLanes 捞回
+    ensureRootIsScheduled(root);
+  };
+  thrownValue.then(wake, wake); // resolve 或 reject 都唤醒（挂起只关心"有结果了"）
+
+  workInProgress = boundary; // 回卷到边界
+  return true;
+}
+
 function prepareFreshStack(root: FiberRootNode): void {
   workInProgressRootRenderLanes = NoLanes;
+  workInProgressRootDidSuspend = false;
   // 出现果树：从 current 造出 workInProgress。
   // 注意 pendingProps 要透传——updateContainer 把 element 写进了 root.current.pendingProps。
   workInProgress = createWorkInProgress(root.current, root.current.pendingProps);
@@ -137,7 +194,46 @@ function completeUnitOfWork(unitOfWork: FiberNode, lanes: Lane): void {
 function renderRootSync(root: FiberRootNode, lanes: Lane): void {
   prepareFreshStack(root);
   workInProgressRootRenderLanes = lanes;
-  workLoopSync(lanes);
+  try {
+    workLoopSync(lanes);
+  } catch (thrownValue) {
+    if (handleThenableThrow(root, thrownValue, lanes)) {
+      workLoopSync(lanes); // 回卷到边界后，把边界这轮的 fallback 渲染完
+    } else {
+      throw thrownValue; // 无 Suspense 边界可承接：原样抛回（mini 无错误边界/类组件）
+    }
+  }
+  finishRenderRoot(root, lanes);
+}
+
+/** 并发渲染（可中断）：时间片用尽返回 RootIncomplete，完成才产出 finishedWork（第 16 章） */
+function renderRootConcurrent(root: FiberRootNode, lanes: Lane): number {
+  prepareFreshStack(root);
+  workInProgressRootRenderLanes = lanes;
+  try {
+    workLoopConcurrent();
+  } catch (thrownValue) {
+    if (handleThenableThrow(root, thrownValue, lanes)) {
+      // 挂起：fallback 要立刻可见，回退同步渲染完（不再问 shouldYield）
+      workLoopSync(lanes);
+    } else {
+      throw thrownValue;
+    }
+  }
+  if (workInProgress !== null) {
+    // 时间片用尽被打断——不产出 finishedWork（current 树原封不动，这就是双缓冲的意义）
+    return RootIncomplete;
+  }
+  finishRenderRoot(root, lanes);
+  return RootCompleted;
+}
+
+/** render 收尾：清挂起记账 + 产出成品树（renderRootSync/Concurrent 共用） */
+function finishRenderRoot(root: FiberRootNode, lanes: Lane): void {
+  // 本轮没挂起 = 成功渲染 → 清掉这些 lane 的挂起记录（可能是一次挂起后的成功 retry）
+  if (!workInProgressRootDidSuspend) {
+    root.suspendedLanes = removeLanes(root.suspendedLanes, lanes);
+  }
   // 成品树 = root.current 的 alternate（prepareFreshStack 里 createWorkInProgress 已让两者互为 alternate）
   root.finishedWork = root.current.alternate;
   root.finishedLanes = lanes;
@@ -145,35 +241,24 @@ function renderRootSync(root: FiberRootNode, lanes: Lane): void {
   workInProgressRootRenderLanes = NoLanes;
 }
 
-/** 并发渲染（可中断）：时间片用尽返回 RootIncomplete，完成才产出 finishedWork（第 16 章） */
-function renderRootConcurrent(root: FiberRootNode, lanes: Lane): number {
-  prepareFreshStack(root);
-  workInProgressRootRenderLanes = lanes;
-  workLoopConcurrent();
-  if (workInProgress !== null) {
-    // 时间片用尽被打断——不产出 finishedWork（current 树原封不动，这就是双缓冲的意义）
-    return RootIncomplete;
-  }
-  root.finishedWork = root.current.alternate;
-  root.finishedLanes = lanes;
-  workInProgress = null;
-  workInProgressRootRenderLanes = NoLanes;
-  return RootCompleted;
-}
-
 /** 同步渲染 + commit（官方 performSyncWorkOnRoot 的精简） */
 function performSyncWorkOnRoot(root: FiberRootNode): void {
   const renderLanes = getNextLanes(root, NoLanes);
+  let didCommit = false;
   try {
     renderRootSync(root, renderLanes);
     if (root.finishedWork !== null) {
-      commitRoot(root);
+      commitRoot(root); // commit 里 markRootFinished 已正确清账（含 Suspense 保留挂起 lane）
+      didCommit = true;
     }
   } finally {
-    // 无论成败都复位：抛错后 pendingLanes 残留会卡死后续调度、callbackNode 残留会让
-    // 下次 ensureRootIsScheduled 误判"已调度"而吞更新，故两者都必须在 finally 里清。
+    // 失败/未 commit 才在这里补清账：抛错后 pendingLanes 残留会卡死后续调度（见
+    // hooks.test 的"抛错后 root 复用"）。commit 成功路径绝不能在这里再 removeLanes——
+    // 否则会把 commit 特意保留的 Suspense 挂起 lane 一并抹掉（第 19 章）。
     root.finishedWork = null;
-    root.pendingLanes = removeLanes(root.pendingLanes, renderLanes);
+    if (!didCommit) {
+      root.pendingLanes = removeLanes(root.pendingLanes, renderLanes);
+    }
     root.callbackNode = null;
     root.callbackPriority = NoLanes;
     // 回收 Provider 栈：渲染中途抛错时 completeWork 的 popProvider 不会执行，
@@ -181,7 +266,6 @@ function performSyncWorkOnRoot(root: FiberRootNode): void {
     resetContextStack();
   }
   // 成功结束时：若还有残留 lane，续排下一批（第 15 章多 lane 的入口）。
-  // 抛错时本行不执行，但 finally 已清干净，下次调度可恢复（见 hooks.test 的"抛错后 root 复用"）。
   if (root.pendingLanes !== NoLanes) {
     ensureRootIsScheduled(root);
   }
