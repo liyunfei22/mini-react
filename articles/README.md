@@ -24,6 +24,8 @@
 | 15  | Lane 模型：优先级即 31 位掩码                        | ✅ 已完成   | —        |
 | 16  | 并发升级：可中断渲染 / startTransition               | ✅ 已完成   | —        |
 | 17  | 发布打磨与全链复盘                                   | ✅ 已完成   | —        |
+| 18  | bailout：beginWork 早退 / childLanes                  | ✅ 已完成   | —        |
+| 19  | Suspense：thenable 抛掷 / 挂起 fallback / wake 唤醒   | ✅ 已完成   | —        |
 
 ## 目录约定
 

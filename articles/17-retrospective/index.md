@@ -52,6 +52,8 @@ draft: true
 | 并发中断恢复 | 完整（finish / ping / 重试） | 允许中断 + 续排，无 Suspense |
 | 渲染环节 | beginWork bailout、更新队列构建期 fork | 无 bailout（整树重渲染） |
 
+> **〔更新〕第 18/19 章已补上**：上表「无 bailout（整树重渲染）」与「无 Suspense」两行已成历史——bailout（beginWork 早退 / childLanes）与 Suspense（thenable 挂起 / fallback / wake 唤醒）均已落地。Suspense 走 legacy 风格（挂起丢弃 subtree、无 Offscreen 保留），「想更进一步」清单里只剩 scheduling profiler 一块。
+
 > 一个透明的已知局限：`updateWorkInProgressHook` 里 wip 与 current **共享 queue 对象**（第 6 章的简化）。若一次并发渲染真被 `shouldYield` 打断并丢弃，共享队列的原地改动理论上会丢 pending 更新——但 mini 没有 Suspense、demo 树都极小，`shouldYield` 永远走不满 5ms，所以这条路径实际上不可达。写在这里，是想让你知道：**不是没想到，是它真的暂时用不上。**
 
 ## 学习路径与延伸阅读
@@ -67,7 +69,7 @@ draft: true
 
 1. **draft**：`draft: false` 才可发布；一次翻一篇。
 2. **用户名**：frontmatter 的 `cover`/`originalSource` 已填 `liyunfei22`，与 GitHub 仓库名保持一致。
-3. **封面**：18 张 `cover.png`（1200×630）已生成，走 jsDelivr，推送后记得把封面的 GitHub 仓库建好。
+3. **封面**：20 张 `cover.png`（1200×630，第 18/19 章各再补一张）走 jsDelivr，推送后记得把封面的 GitHub 仓库建好。
 4. **推送**：`git remote add origin git@github.com:liyunfei22/mini-react.git && git push -u origin main`。
 5. **正文**：粘贴 `articles/NN-*/**/.juejin-body.md`（已剥 frontmatter），标题/摘要/封面/标签 3~5 个/声明原创/原文地址按正文前的 frontmatter 填。
 6. **回填**：发布后把掘金链接写回 `articles/README.md` 进度表「掘金链接」列。

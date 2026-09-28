@@ -4,7 +4,7 @@
 > 而是**读懂 React 原理与源码设计**：每一章 = 一段可运行的源码实现 + 一篇掘金技术文章 + 一个 playground demo。
 
 - 技术栈：TypeScript（strict）· pnpm workspaces · Vitest · Rollup（打包脚手架）· Vite（playground）
-- 特性范围：React 18「核心 + 并发」—— Fiber、Hooks、事件系统、Diff、Context、Refs、Scheduler、Lane、可中断渲染、useTransition
+- 特性范围：React 18「核心 + 并发」—— Fiber、Hooks、事件系统、Diff、Context、Refs、Scheduler、Lane、可中断渲染、useTransition、bailout、Suspense
 - 专栏：`articles/` 每章一文，系列发布到掘金（`tools/` 提供发布辅助）
 
 ## 快速开始
@@ -92,6 +92,8 @@ apps/playground ─▶ @mini-react/react / react-dom（仅 apps 层可 import re
 | 11~13 | Context / refs / 合成事件                            | ✅ 全部完成                           |
 | 14~16 | Scheduler / Lane / 并发升级                          | ✅ 全部完成                           |
 | 17    | 发布打磨与全链复盘                                   | ✅ 已完成                             |
+| 18    | bailout：beginWork 早退与 childLanes                  | ✅ 已完成                             |
+| 19    | Suspense：thenable 挂起与唤醒                         | ✅ 已完成                             |
 
 > 进度事实源：`articles/README.md`。新增篇章用 `pnpm article:new`（`node tools/new-article.mjs NN slug 标题`）。
 
@@ -111,7 +113,7 @@ pnpm article:juejin     # 发布辅助：剥 frontmatter + 校验图片 + 打清
 
 - 每章一个 commit；`main` 分支保持 `pnpm check` 全绿。
 - 脚手架（打包体系）即 `scripts/`；`dist/`、`dist-types/`、`node_modules/` 不入库。
-- **发布到 GitHub**：frontmatter 的 `originalSource` 与 18 张封面图床都已填 `liyunfei22`，推送到 GitHub 后即生效：
+- **发布到 GitHub**：frontmatter 的 `originalSource` 与封面图床都已填 `liyunfei22`（第 18/19 章封面待生成），推送到 GitHub 后即生效：
   ```bash
   git remote add origin git@github.com:liyunfei22/mini-react.git
   git push -u origin main
