@@ -404,3 +404,29 @@ export function ChildReconciler(shouldTrackSideEffects: boolean) {
 
 export const reconcileChildFibers = ChildReconciler(true);
 export const mountChildFibers = ChildReconciler(false);
+
+/**
+ * 克隆整条 child 链（官方 ReactChildFiber.new.js `cloneChildFibers`）。
+ * bailout 的续行手段：本 fiber 自身没有要渲染的活，但子树里有——
+ * 就把 current 的孩子逐个 createWorkInProgress 成 wip（pendingProps 原样带过去，
+ * 于是它们的 beginWork 会命中"props 没变"分支、继续各自判断该不该往下钻）。
+ */
+export function cloneChildFibers(current: FiberNode | null, workInProgress: FiberNode): void {
+  if (current !== null && workInProgress.child !== current.child) {
+    // 官方此处是「断点续渲染」的守卫；mini 版无断点续渲染，保留同款投错以示约束
+    throw new Error('Resuming work not yet implemented.');
+  }
+  if (workInProgress.child === null) {
+    return;
+  }
+  let currentChild = workInProgress.child;
+  let newChild = createWorkInProgress(currentChild, currentChild.pendingProps);
+  workInProgress.child = newChild;
+  newChild.return = workInProgress;
+  while (currentChild.sibling !== null) {
+    currentChild = currentChild.sibling;
+    newChild = newChild.sibling = createWorkInProgress(currentChild, currentChild.pendingProps);
+    newChild.return = workInProgress;
+  }
+  newChild.sibling = null;
+}

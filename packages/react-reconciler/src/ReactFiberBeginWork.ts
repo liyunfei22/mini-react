@@ -2,10 +2,11 @@
 // beginWork：给定一个 wip fiber，把它的 children 变成一支 fiber 子链表，返回第一个 child。
 // workLoop 就靠"返回 child / 进 complete"来决定游标去向。
 import type { ReactContext } from '@mini-react/shared';
-import { mountChildFibers, reconcileChildFibers } from './ReactChildFiber';
+import { cloneChildFibers, mountChildFibers, reconcileChildFibers } from './ReactChildFiber';
 import type { FiberNode } from './ReactFiber';
 import { renderWithHooks } from './ReactFiberHooks';
 import type { Lanes } from './ReactFiberLane';
+import { includesSomeLane, NoLanes } from './ReactFiberLane';
 import { pushProvider } from './ReactFiberNewContext';
 import {
   ContextConsumer,
@@ -112,7 +113,63 @@ function updateHostComponent(
 }
 
 /**
- * beginWork —— 官方 beginWork 函数的 mini 版（去掉 bailout/context/offscreen 等分支）。
+ * 是否有待处理的更新/context（官方 checkScheduledUpdateOrContext）。
+ * 只查「自己身上的 lane」——fiber.lanes 由 markUpdateLaneFromFiberToRoot 在调度时点燃、
+ * 真正渲染时清零，所以它为真意味着「本轮 renderLanes 里有这个 fiber 自己没过期的活」。
+ * context 惰性传播（enableLazyContextPropagation）mini 版未实现，恒不成立。
+ */
+function checkScheduledUpdateOrContext(current: FiberNode, renderLanes: Lanes): boolean {
+  return includesSomeLane(current.lanes, renderLanes);
+}
+
+/**
+ * bailout 的最后一跳（官方 bailoutOnAlreadyFinishedWork）。
+ * 子树里没有 renderLanes 上的活 → 返回 null，整段跳过；有 → cloneChildFibers 把 current 的
+ * 孩子原样克隆成 wip 并续钻（克隆出来的 pendingProps === memoizedProps，于是孩子会再走
+ * 一遍「props 没变」的早退判断）。
+ */
+function bailoutOnAlreadyFinishedWork(
+  current: FiberNode | null,
+  workInProgress: FiberNode,
+  renderLanes: Lanes,
+): FiberNode | null {
+  if (current !== null) {
+    workInProgress.dependencies = current.dependencies;
+  }
+  if (!includesSomeLane(renderLanes, workInProgress.childLanes)) {
+    return null;
+  }
+  cloneChildFibers(current, workInProgress);
+  return workInProgress.child;
+}
+
+/**
+ * 早退分支（官方 attemptEarlyBailoutIfNoScheduledUpdate）。官方在此做各类 context 入栈簿记；
+ * mini 版只在「仍需正常渲染」的 tag 上直接回调对应 update 函数，其余落入
+ * bailoutOnAlreadyFinishedWork。差异：ContextProvider 未做惰性传播，恒走全量 update。
+ */
+function attemptEarlyBailoutIfNoScheduledUpdate(
+  current: FiberNode | null,
+  workInProgress: FiberNode,
+  renderLanes: Lanes,
+): FiberNode | null {
+  switch (workInProgress.tag) {
+    case HostRoot:
+      return updateHostRoot(current, workInProgress, renderLanes);
+    case HostComponent:
+      return updateHostComponent(current, workInProgress, renderLanes);
+    case ContextProvider:
+      return updateContextProvider(current, workInProgress, renderLanes);
+    default:
+      break;
+  }
+  return bailoutOnAlreadyFinishedWork(current, workInProgress, renderLanes);
+}
+
+/**
+ * beginWork —— 官方 beginWork 函数的 mini 版（去掉 memo/offscreen 等分支）。
+ * 第 18 章起加入官方同款早退：fiber 没有自己的活、props 也没变时先走
+ * attemptEarlyBailoutIfNoScheduledUpdate，命中就跳过重渲染乃至整段子树。
  * 返回 null 表示"这层结束了，向上 complete"；返回子 fiber 表示"继续往下"。
  */
 export function beginWork(
@@ -120,6 +177,20 @@ export function beginWork(
   workInProgress: FiberNode,
   renderLanes: Lanes,
 ): FiberNode | null {
+  if (current !== null) {
+    const oldProps = current.memoizedProps;
+    const newProps = workInProgress.pendingProps;
+    const propsChanged = oldProps !== newProps;
+    if (!propsChanged) {
+      const hasScheduledUpdateOrContext = checkScheduledUpdateOrContext(current, renderLanes);
+      if (!hasScheduledUpdateOrContext) {
+        return attemptEarlyBailoutIfNoScheduledUpdate(current, workInProgress, renderLanes);
+      }
+    }
+  }
+  // 确定要干活：先清掉自己的 lane 账（本轮已消费）；被跳过的 lane 会在 processUpdateQueue
+  // 里用 `currentlyRenderingFiber.lanes |= updateLane` 重新点回（第 18 章）。
+  workInProgress.lanes = NoLanes;
   switch (workInProgress.tag) {
     case IndeterminateComponent: {
       // 组件被真正调用的那一刻才知道它是函数还是类（mini 版一律按函数处理）

@@ -26,7 +26,7 @@ import {
   resetContextDependencies,
 } from './ReactFiberNewContext';
 import { requestUpdateLane, scheduleUpdateOnFiber } from './ReactFiberWorkLoop';
-import { isSubsetOfLanes, NoLane, NoLanes } from './ReactFiberLane';
+import { isSubsetOfLanes, mergeLanes, NoLane, NoLanes } from './ReactFiberLane';
 import type { Lane, Lanes } from './ReactFiberLane';
 
 // ---- 类型（非泛型，边界断言）----
@@ -252,7 +252,10 @@ function processUpdateQueue<S>(hook: Hook, reducer: ReducerFn<S>): S {
         newBaseQueueLast.next = clone;
       }
       newBaseQueueLast = clone;
-      queue.lanes = (queue.lanes | updateLane) as Lanes;
+      queue.lanes = mergeLanes(queue.lanes, updateLane);
+      // 官方 ReactFiberHooks.new.js 同款：被跳过的 lane 要重新点回 fiber.lanes——beginWork 干活前
+      // 把 lanes 清零了，不点回来这条更新在后续低优先级渲染里会被 bailout 整段跳过（第 18 章）。
+      currentlyRenderingFiber!.lanes = mergeLanes(currentlyRenderingFiber!.lanes, updateLane);
     } else {
       // 本轮处理：应用更新；若前面有被跳过的更新，则本更新的结果基于旧 base 派生，
       // 补一个 NoLane 克隆进 baseQueue，等被跳过的更新补上后一起重算。

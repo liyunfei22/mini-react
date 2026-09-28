@@ -32,6 +32,7 @@ import {
   InputContinuousLane,
   markRootUpdated as markRootUpdatedLane,
   markStarvedLanesAsExpired,
+  mergeLanes,
   NoLane,
   NoLanes,
   removeLanes,
@@ -288,10 +289,41 @@ function ensureRootIsScheduled(root: FiberRootNode): void {
 }
 
 /**
+ * 把一次更新的 lane「点燃」到 fiber 及其祖先链（官方 ReactFiberConcurrentUpdates.new.js
+ * `markUpdateLaneFromFiberToRoot`）。第 18 章 bailout 的账本来源：
+ *   - source fiber 的 `lanes |= lane`：beginWork 据此判断「我自己有没有待处理更新」；
+ *   - 祖先链上每个 parent 的 `childLanes |= lane`：bailout 据此判断「我子树里有没有活」。
+ * 只沿 return 链上冒（同步维护 alternate），兄弟子树不受影响——这是 bailout 能整段跳过的关键。
+ */
+export function markUpdateLaneFromFiberToRoot(sourceFiber: FiberNode, lane: Lane): FiberRootNode {
+  sourceFiber.lanes = mergeLanes(sourceFiber.lanes, lane);
+  let alternate = sourceFiber.alternate;
+  if (alternate !== null) {
+    alternate.lanes = mergeLanes(alternate.lanes, lane);
+  }
+  let parent = sourceFiber.return;
+  let node = sourceFiber;
+  while (parent !== null) {
+    parent.childLanes = mergeLanes(parent.childLanes, lane);
+    alternate = parent.alternate;
+    if (alternate !== null) {
+      alternate.childLanes = mergeLanes(alternate.childLanes, lane);
+    }
+    node = parent;
+    parent = parent.return;
+  }
+  return node.stateNode as FiberRootNode;
+}
+
+/**
  * 调度一次更新（官方 scheduleUpdateOnFiber 的精简）。
  * 官方此处还有 render-phase 分支；mini 版由 dispatch 端抛错拦截渲染期更新。
+ * 第 18 章起：先 markUpdateLaneFromFiberToRoot 记 fiber/childLanes 账，再 markRootUpdated。
+ * 官方把 childLanes 上冒延后到 render 结束（finishQueueingConcurrentUpdates），mini 因为
+ * 渲染期更新直接抛错，可安全即时上冒（差异见文章）。
  */
-export function scheduleUpdateOnFiber(root: FiberRootNode, _fiber: FiberNode, lane: Lane): void {
+export function scheduleUpdateOnFiber(root: FiberRootNode, fiber: FiberNode, lane: Lane): void {
+  markUpdateLaneFromFiberToRoot(fiber, lane);
   markRootUpdatedLane(root, lane, unstable_now());
   ensureRootIsScheduled(root);
 }

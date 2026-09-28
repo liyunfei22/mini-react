@@ -72,6 +72,10 @@ export function isSubsetOfLanes(set: Lanes, subset: Lanes | Lane): boolean {
 export function hasAnyLanes(set: Lanes, subset: Lanes | Lane): boolean {
   return (set & subset) !== NoLanes;
 }
+/** 官方命名（ReactFiberLane.new.js）：本仓库 hasAnyLanes 的别名，语义完全一致 */
+export function includesSomeLane(a: Lanes | Lane, b: Lanes | Lane): boolean {
+  return (a & b) !== NoLanes;
+}
 export function getHighestPriorityLane(lanes: Lanes | Lane): Lane {
   return lanes & -lanes; // 取出最低位的 1
 }
