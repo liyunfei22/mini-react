@@ -20,6 +20,10 @@ packages/*/src/*.d.ts.map
 .turbo/
 .vite/
 *.log
+# VitePress 文档站
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+node_modules/.vitepress/
 .DS_Store
 .idea/
 .vscode/

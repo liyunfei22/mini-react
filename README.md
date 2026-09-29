@@ -30,7 +30,8 @@ mini-react/
 ├── apps/playground/           # 演示台：dev alias 直连源码；build 走 dist（exports 冒烟）
 ├── scripts/                   # 打包脚手架（对官方 scripts/rollup 的迷你镜像）
 ├── tools/                     # 掘金专栏工具（frontmatter / new-article / to-juejin）
-└── articles/                  # 技术专栏（frontmatter + assets + 进度表）
+├── articles/                  # 技术专栏（frontmatter + assets + 进度表）
+└── docs/                      # VitePress 文档站（chapters 由 articles 经 pnpm docs:sync 生成，GitHub Pages 部署）
 ```
 
 ## 打包脚手架（`scripts/`，对官方 `scripts/rollup`）
@@ -107,7 +108,13 @@ pnpm build              # 16 个产物；pnpm build:react-dom 可按 id 过滤
 pnpm lint / format      # eslint / prettier
 pnpm article:new        # 新文章骨架 + 进度表
 pnpm article:juejin     # 发布辅助：剥 frontmatter + 校验图片 + 打清单
+pnpm docs:sync          # articles → docs/chapters（改文章后重跑）
+pnpm docs:dev           # 本地起 VitePress 文档站
+pnpm docs:build         # 构建文档站到 docs/.vitepress/dist（CI 部署用）
 ```
+
+> 文档站默认部署到 GitHub Pages：`https://liyunfei22.github.io/mini-react/`（`.github/workflows/deploy-docs.yml`）。
+> 首次需要在仓库 Settings → Pages 里把 Source 切成「GitHub Actions」。
 
 ## Git 与发布工作流
 

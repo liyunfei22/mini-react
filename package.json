@@ -20,7 +20,11 @@
     "playground:build": "pnpm --filter playground build",
     "playground:preview": "pnpm --filter playground preview",
     "article:new": "node tools/new-article.mjs",
-    "article:juejin": "node tools/to-juejin.mjs"
+    "article:juejin": "node tools/to-juejin.mjs",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
+    "docs:sync": "node tools/sync-docs.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -38,6 +42,7 @@
     "rollup-plugin-esbuild": "^6.2.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.70.0",
+    "vitepress": "^1.6.4",
     "vitest": "^5.0.1"
   },
   "pnpm": {
