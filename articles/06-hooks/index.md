@@ -7,7 +7,7 @@ date: 2026-09-22
 series: mini-react 源码解析
 seriesIndex: 6
 originalSource: https://github.com/liyunfei22/mini-react
-draft: true
+draft: false
 ---
 
 # 问题：useState 的"状态"到底存在哪、怎么被记住

@@ -7,7 +7,7 @@ date: 2026-09-22
 series: mini-react 源码解析
 seriesIndex: 7
 originalSource: https://github.com/liyunfei22/mini-react
-draft: true
+draft: false
 ---
 
 # 问题：dispatch 和"重新渲染"之间，隔着一个什么

@@ -7,7 +7,7 @@ date: 2026-09-28
 series: mini-react 源码解析
 seriesIndex: 18
 originalSource: https://github.com/liyunfei22/mini-react
-draft: true
+draft: false
 ---
 
 # 问题：父组件 setState，兄弟子树凭什么要跟着重渲染

@@ -7,7 +7,7 @@ date: 2026-09-23
 series: mini-react 源码解析
 seriesIndex: 13
 originalSource: https://github.com/liyunfei22/mini-react
-draft: true
+draft: false
 ---
 
 # 问题：一万个 li 的 onClick，React 绑了一万个监听器吗

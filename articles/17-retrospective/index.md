@@ -7,7 +7,7 @@ date: 2026-09-24
 series: mini-react 源码解析
 seriesIndex: 17
 originalSource: https://github.com/liyunfei22/mini-react
-draft: true
+draft: false
 ---
 
 # 问题：走完 16 章，能不能用一张地图装下整条路

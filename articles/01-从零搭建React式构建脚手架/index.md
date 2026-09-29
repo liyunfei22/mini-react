@@ -7,7 +7,7 @@ date: 2026-09-21
 series: mini-react 源码解析
 seriesIndex: 1
 originalSource: https://github.com/liyunfei22/mini-react
-draft: true
+draft: false
 ---
 
 # 一个问题：同一份源码，React 怎么产出 dev/prod 两个产物？

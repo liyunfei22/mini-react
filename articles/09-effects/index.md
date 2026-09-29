@@ -7,7 +7,7 @@ date: 2026-09-23
 series: mini-react 源码解析
 seriesIndex: 9
 originalSource: https://github.com/liyunfei22/mini-react
-draft: true
+draft: false
 ---
 
 # 问题：useEffect 和 useLayoutEffect 到底差在哪

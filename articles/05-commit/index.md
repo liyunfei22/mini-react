@@ -7,7 +7,7 @@ date: 2026-09-22
 series: mini-react 源码解析
 seriesIndex: 5
 originalSource: https://github.com/liyunfei22/mini-react
-draft: true
+draft: false
 ---
 
 # 问题：render 是怎么从"重画"变成"只改必要 DOM"

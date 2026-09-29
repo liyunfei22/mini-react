@@ -7,7 +7,7 @@ date: 2026-09-22
 series: mini-react 源码解析
 seriesIndex: 4
 originalSource: https://github.com/liyunfei22/mini-react
-draft: true
+draft: false
 ---
 
 # 问题：`createRoot(container).render(<App/>)` 之后发生了什么

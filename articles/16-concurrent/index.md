@@ -7,7 +7,7 @@ date: 2026-09-24
 series: mini-react 源码解析
 seriesIndex: 16
 originalSource: https://github.com/liyunfei22/mini-react
-draft: true
+draft: false
 ---
 
 # 问题：一条 setState 到底走"同步"还是"并发"

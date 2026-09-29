@@ -7,7 +7,7 @@ date: 2026-09-28
 series: mini-react 源码解析
 seriesIndex: 19
 originalSource: https://github.com/liyunfei22/mini-react
-draft: true
+draft: false
 ---
 
 # 问题：数据还没好，UI 怎么体面地占位

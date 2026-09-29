@@ -7,7 +7,7 @@ date: 2026-09-24
 series: mini-react 源码解析
 seriesIndex: 14
 originalSource: https://github.com/liyunfei22/mini-react
-draft: true
+draft: false
 ---
 
 # 问题：一段要跑 100ms 的渲染，怎么不卡死浏览器

@@ -7,7 +7,7 @@ date: 2026-09-23
 series: mini-react 源码解析
 seriesIndex: 11
 originalSource: https://github.com/liyunfei22/mini-react
-draft: true
+draft: false
 ---
 
 # 问题：`useContext` 怎么知道"现在是哪个 Provider 在管我"

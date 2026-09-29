@@ -7,7 +7,7 @@ date: 2026-09-22
 series: mini-react 源码解析
 seriesIndex: 3
 originalSource: https://github.com/liyunfei22/mini-react
-draft: true
+draft: false
 ---
 
 # 问题：为什么 React 16 之前的渲染方式是"一条死路"

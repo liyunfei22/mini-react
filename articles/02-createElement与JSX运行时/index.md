@@ -7,7 +7,7 @@ date: 2026-09-21
 series: mini-react 源码解析
 seriesIndex: 2
 originalSource: https://github.com/liyunfei22/mini-react
-draft: true
+draft: false
 ---
 
 # 问题：key 用错为什么会让输入框「串位」，Symbol.for 为什么能跨库识别一个 element

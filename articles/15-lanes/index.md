@@ -7,7 +7,7 @@ date: 2026-09-24
 series: mini-react 源码解析
 seriesIndex: 15
 originalSource: https://github.com/liyunfei22/mini-react
-draft: true
+draft: false
 ---
 
 # 问题：更新有优先级，但怎么"记得住"同时存在好几种优先级

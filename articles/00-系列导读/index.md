@@ -7,7 +7,7 @@ date: 2026-09-21
 series: mini-react 源码解析
 seriesIndex: 0
 originalSource: https://github.com/liyunfei22/mini-react
-draft: true
+draft: false
 ---
 
 # 为什么读 React 源码

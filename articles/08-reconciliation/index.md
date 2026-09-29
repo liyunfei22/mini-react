@@ -7,7 +7,7 @@ date: 2026-09-23
 series: mini-react 源码解析
 seriesIndex: 8
 originalSource: https://github.com/liyunfei22/mini-react
-draft: true
+draft: false
 ---
 
 # 问题：为什么一个 key 就能改变能否复用

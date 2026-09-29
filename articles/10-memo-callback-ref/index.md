@@ -7,7 +7,7 @@ date: 2026-09-23
 series: mini-react 源码解析
 seriesIndex: 10
 originalSource: https://github.com/liyunfei22/mini-react
-draft: true
+draft: false
 ---
 
 # 问题：这三个 hook 为什么实现起来都一样短
